@@ -1,0 +1,4 @@
+[package]
+name = "rustify_wled_lib"
+version = "0.1.0"
+authors = ["joeyy-watts"]
