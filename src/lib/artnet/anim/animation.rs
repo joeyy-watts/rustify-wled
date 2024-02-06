@@ -1,14 +1,13 @@
-use super::effects::base::brightness::BrightnessEffect;
+use super::effects::effect::Effect;
 use super::frame::AnimationFrame;
-use super::effects::base::r#static::StaticEffect;
 
 #[derive(Clone)]
 pub struct Animation {
-    pub frames: Vec<AnimationFrame>,
+    pub frames: Vec<AnimationFrame>
 }
 
 impl Animation {
-    pub fn new(image: Vec<u8>, size: (u8, u8), effect: BrightnessEffect) -> Self {
+    pub fn new(image: Vec<u8>, size: (u8, u8), target_fps: u8, effect: &dyn Effect) -> Self {
         let (width, height) = (32, 32);
         let frames = effect.apply(&image);
 

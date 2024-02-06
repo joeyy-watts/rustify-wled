@@ -1,17 +1,11 @@
 /// Static effect to display static image
 /// 
-use crate::lib::artnet::anim::frame::AnimationFrame;
+use crate::lib::artnet::anim::{effects::effect::Effect, frame::AnimationFrame};
 
-pub struct StaticEffect {
+pub struct StaticEffect;
 
-}
-
-impl StaticEffect {
-    pub fn new() -> Self {
-        Self {}
-    }
-
-    pub fn apply(&self, image: Vec<u8>) -> Vec<AnimationFrame> {
+impl Effect for StaticEffect {
+    fn apply(&self, image: &Vec<u8>) -> Vec<AnimationFrame> {
         let frames = vec![image; 10];
         let mut result = vec![];
 

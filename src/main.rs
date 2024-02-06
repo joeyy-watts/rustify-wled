@@ -31,7 +31,7 @@ fn get_test_array() -> Vec<u8> {
 fn start_loop() {
     let mut animation_controller: AnimationController = AnimationController::new(String::from("192.168.31.87"), (32, 32));
 
-    let animation: Animation = Animation::new(get_test_array(), (32, 32), BrightnessEffect::new());
+    let animation: Animation = Animation::new(get_test_array(), (32, 32), 12, &StaticEffect);
 
     animation_controller.play_animation(animation);
 }

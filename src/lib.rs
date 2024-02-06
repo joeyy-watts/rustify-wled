@@ -9,6 +9,7 @@ pub mod lib {
                         pub mod overlay;
                         pub mod r#static;
                     }
+                    pub mod effect;
             }
             pub mod animation;
             pub mod frame;

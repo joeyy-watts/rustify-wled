@@ -1,8 +1,8 @@
 // playback effects for play, pause, idle
-pub struct PlaybackAnimation {
+pub struct PlaybackEffects {
 
 }
 
-impl PlaybackAnimation {
+impl PlaybackEffects {
 
 }
