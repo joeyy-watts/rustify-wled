@@ -17,14 +17,13 @@ use crate::lib::artnet::anim::frame::AnimationFrame;
 /// 
 pub struct ArtNetController2D {
     pub inner: Arc<ArtNetController2DInner>,
-    stop_flag: Arc<AtomicBool>
+    stop_flag: Arc<AtomicBool>,
 } 
 
 pub struct ArtNetController2DInner {
     pub target: String,
     pub dimensions: (u16, u16),
     socket: UdpSocket,
-    sequence_counter: Mutex<u8>,
 }
 
 impl ArtNetController2D {
@@ -40,9 +39,14 @@ impl ArtNetController2D {
         let local_flag = self.stop_flag.clone();
 
         thread::spawn(move || {
+            let mut sequence_counter: u8 = 0;
+
             while !local_flag.load(Ordering::Relaxed) {
                 for frame in frames.clone() {
-                    local_self.send_frame(frame);
+                    local_self.send_frame(frame, sequence_counter);
+                    
+                    sequence_counter = sequence_counter.wrapping_add(1);
+                    
                     thread::sleep(Duration::from_secs_f64(frame_interval));
                 }
             }
@@ -60,15 +64,15 @@ impl ArtNetController2D {
 impl ArtNetController2DInner {
     pub fn new(target: String, dimensions: (u16, u16)) -> Self {
         let socket = UdpSocket::bind("0.0.0.0:0").expect("Unable to bind to address!");
-        let sequence_counter: Mutex<u8> = Mutex::new(0);
-        Self { target, dimensions, socket, sequence_counter } //, stop_flag }
+
+        Self { target, dimensions, socket }
     }
 
     /// Sends a single frame (or image) to the target device
     /// 
     /// `frame` - the frame to be sent
     /// 
-    fn send_frame(&self, frame: AnimationFrame) {
+    fn send_frame(&self, frame: AnimationFrame, sequence_counter: u8) {
         // or channels per universe
         static CHANNELS_PER_SHARD: u16 = 510;
         static CHANNELS_PER_PIXEL: u16 = 3;
@@ -82,25 +86,28 @@ impl ArtNetController2DInner {
         ) as u16;
 
         let addr = format!("{}:6454", self.target).to_socket_addrs().unwrap().next().unwrap();
+        let mut commands = Vec::new();
 
         for u in 0..num_shards {
             let start: usize = (u * CHANNELS_PER_SHARD) as usize;
             let end: usize = cmp::min((((u + 1) * CHANNELS_PER_SHARD) - 1), (frame.data.len()) as u16) as usize;
-
             let frame_slice = frame.data[start..end].to_vec();
-
             let command: ArtCommand = ArtCommand::Output(Output {
                 data: frame_slice.into(), // The data we're sending to the node
-                sequence: self.sequence_counter.lock().unwrap().clone(),
+                sequence: sequence_counter,
                 port_address: PortAddress::try_from((u + 1) as u8).unwrap(),
                 ..Output::default()
             });
-            
-            let bytes = command.write_to_buffer().unwrap();
-            self.socket.send_to(&bytes, &addr).unwrap();
 
-            let mut sequence_counter = self.sequence_counter.lock().unwrap();
-            *sequence_counter = sequence_counter.wrapping_add(1);
+            let bytes = command.write_to_buffer().unwrap();
+
+            commands.push(bytes);
         }
+        
+        for command_byte in commands {
+            self.socket.send_to(&command_byte, &addr).unwrap();
+        }
+
+
     }
 }
