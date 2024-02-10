@@ -24,3 +24,7 @@ pub mod lib {
         pub mod webserver;
     }
 }
+
+pub mod utils {
+    pub mod image;
+}
