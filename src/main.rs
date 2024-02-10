@@ -1,7 +1,10 @@
 #[macro_use] extern crate rocket;
 
+use std::thread::{self, Thread};
+use std::time::Duration;
+
 use rustify_wled_lib::lib::artnet::anim::animation::Animation;
-use rustify_wled_lib::lib::artnet::anim::effects::base::brightness::BrightnessEffect;
+use rustify_wled_lib::lib::artnet::anim::effects::base::brightness::SinBrightnessEffect;
 use rustify_wled_lib::lib::artnet::anim::effects::base::r#static::StaticEffect;
 use rustify_wled_lib::lib::controllers::animation::AnimationController;
 
@@ -28,23 +31,27 @@ fn get_test_array() -> Vec<u8> {
     rgb_data
 }
 
-fn start_loop() {
+#[get("/start")]
+fn anim_start() -> &'static str {
     let mut animation_controller: AnimationController = AnimationController::new(String::from("192.168.31.87"), (32, 32));
 
-    let animation: Animation = Animation::new(get_test_array(), (32, 32), 12, &StaticEffect);
+    let animation: Animation = Animation::new(get_test_array(), (32, 32), 24, &SinBrightnessEffect { period: 1.0, amplitude: 0.5, offset: 0.5 });
 
     animation_controller.play_animation(animation);
+
+    "start"
 }
 
-#[get("/start")]
-fn artnet_start() -> &'static str {
-    start_loop();
-    "start"
+#[get("/stop")]
+fn anim_stop() -> &'static str {
+    // animation_controller.stop_animation();
+    "stop"
 }
 
 #[launch]
 fn rocket() -> _ {
     rocket::build()
     .mount("/", routes![index])
-    .mount("/", routes![artnet_start])
+    .mount("/", routes![anim_start])
+    .mount("/", routes![anim_stop])
 }

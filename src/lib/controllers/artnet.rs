@@ -95,7 +95,7 @@ impl ArtNetController2DInner {
             let command: ArtCommand = ArtCommand::Output(Output {
                 data: frame_slice.into(), // The data we're sending to the node
                 sequence: sequence_counter,
-                port_address: PortAddress::try_from((u + 1) as u8).unwrap(),
+                port_address: PortAddress::try_from(u as u8).unwrap(),
                 ..Output::default()
             });
 
