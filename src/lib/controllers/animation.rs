@@ -1,6 +1,6 @@
 use crate::lib::controllers::artnet::ArtNetController2D;
 use crate::lib::artnet::anim::animation::Animation;
-
+use std::sync::atomic::Ordering;
 
 /// Controller for playing animations to target ArtNet devices
 /// 
@@ -8,37 +8,38 @@ use crate::lib::artnet::anim::animation::Animation;
 /// `active_animation` - thread of the currently playing animation
 /// 
 pub struct AnimationController {
-    pub active_animation: Option<Animation>,
     artnet_controller: ArtNetController2D,
 }
 
 impl AnimationController {
     pub fn new(target: String, dimensions: (u16, u16)) -> Self {
         let artnet_controller = ArtNetController2D::new(target, dimensions);
-        Self { 
-            active_animation: None, 
-            artnet_controller: artnet_controller,
-        }
+        Self { artnet_controller }
     }
 
-    /// Plays the given animation to the target device
+    /// Plays the given animation to the target device.
+    /// 
+    /// If an animation is already playing, it set the stop flag, wait for it to complete,
+    /// then starts the new animation.
     /// 
     /// `animation` - the animation to be played
     /// 
     /// Returns:
     ///     A Result indicating the success of the operation
     /// 
-    pub fn play_animation(&mut self, animation: Animation) {
-        // if some animation is already playing, stop it
-        if !self.active_animation.is_none() {
-            self.stop_animation();
+    pub fn play_animation(&self, animation: Animation) {
+        // if some animation is already playing, stop it gracefuly first
+        if self.artnet_controller.is_playing.load(Ordering::Relaxed) {
+            self.artnet_controller.stop_animation();
+
+                while self.artnet_controller.is_playing.load(Ordering::Relaxed) {
+                    // wait for the the animation to stop gracefully
+                }  
         }
 
-        self.active_animation = Some(animation);
+        let frame_interval = 1.0 / animation.target_fps as f64;
 
-        let frame_interval = 1.0 / self.active_animation.as_ref().unwrap().target_fps as f64;
-
-        self.artnet_controller.send_frames(self.active_animation.as_ref().unwrap().frames.clone(), frame_interval);
+        self.artnet_controller.send_frames(animation.frames, frame_interval);
     }
 
     pub fn stop_animation(&self) {

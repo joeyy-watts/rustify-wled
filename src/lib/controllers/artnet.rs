@@ -1,6 +1,6 @@
 use std::net::{UdpSocket, ToSocketAddrs};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 use std::{cmp, thread};
 use artnet_protocol::*;
@@ -17,6 +17,7 @@ use crate::lib::artnet::anim::frame::AnimationFrame;
 /// 
 pub struct ArtNetController2D {
     pub inner: Arc<ArtNetController2DInner>,
+    pub is_playing: Arc<AtomicBool>,
     stop_flag: Arc<AtomicBool>,
 } 
 
@@ -29,27 +30,33 @@ pub struct ArtNetController2DInner {
 impl ArtNetController2D {
     pub fn new(target: String, dimensions: (u16, u16)) -> Self {
         let inner = Arc::new(ArtNetController2DInner::new(target, dimensions));
+        let is_playing = Arc::new(AtomicBool::new(false));
         let stop_flag = Arc::new(AtomicBool::new(false));
 
-        Self { inner, stop_flag }
+        Self { inner, is_playing, stop_flag }
     }
 
     pub fn send_frames(&self, frames: Vec<AnimationFrame>, frame_interval: f64) {
-        let local_self = self.inner.clone();
-        let local_flag = self.stop_flag.clone();
+        self.is_playing.store(true, Ordering::Relaxed);
+
+        let local_inner = self.inner.clone();
+        let local_stop_flag = self.stop_flag.clone();
+        let local_playing_flag = self.is_playing.clone();
 
         thread::spawn(move || {
             let mut sequence_counter: u8 = 0;
 
-            while !local_flag.load(Ordering::Relaxed) {
+            while !local_stop_flag.load(Ordering::Relaxed) {
                 for frame in frames.clone() {
-                    local_self.send_frame(frame, sequence_counter);
+                    local_inner.send_frame(frame, sequence_counter);
                     
                     sequence_counter = sequence_counter.wrapping_add(1);
                     
                     thread::sleep(Duration::from_secs_f64(frame_interval));
                 }
             }
+
+            local_playing_flag.store(false, Ordering::Relaxed);
         });
     }
 
@@ -90,7 +97,7 @@ impl ArtNetController2DInner {
 
         for u in 0..num_shards {
             let start: usize = (u * CHANNELS_PER_SHARD) as usize;
-            let end: usize = cmp::min((((u + 1) * CHANNELS_PER_SHARD) - 1), (frame.data.len()) as u16) as usize;
+            let end: usize = cmp::min(((u + 1) * CHANNELS_PER_SHARD) - 1, (frame.data.len()) as u16) as usize;
             let frame_slice = frame.data[start..end].to_vec();
             let command: ArtCommand = ArtCommand::Output(Output {
                 data: frame_slice.into(), // The data we're sending to the node
