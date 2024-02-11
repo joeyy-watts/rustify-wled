@@ -61,7 +61,9 @@ impl ArtNetController2D {
     }
 
     pub fn stop_animation(&self) {
-        self.stop_flag.store(true, Ordering::Relaxed);
+        if self.is_playing.load(Ordering::Relaxed) {
+            self.stop_flag.store(true, Ordering::Relaxed);
+        }
     }
 }
 
