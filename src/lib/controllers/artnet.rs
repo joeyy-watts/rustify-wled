@@ -29,7 +29,7 @@ pub struct ArtNetController2DInner {
 
 impl ArtNetController2D {
     pub fn new(target: String, dimensions: (u16, u16)) -> Self {
-        let inner = Arc::new(ArtNetController2DInner::new(target, dimensions));
+        let inner: Arc<ArtNetController2DInner> = Arc::new(ArtNetController2DInner::new(target, dimensions));
         let is_playing = Arc::new(AtomicBool::new(false));
         let stop_flag = Arc::new(AtomicBool::new(false));
 
@@ -57,6 +57,7 @@ impl ArtNetController2D {
             }
 
             local_playing_flag.store(false, Ordering::Relaxed);
+            local_stop_flag.store(false, Ordering::Relaxed);
         });
     }
 
