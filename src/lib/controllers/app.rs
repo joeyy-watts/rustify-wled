@@ -61,6 +61,7 @@ impl ApplicationController {
 
     pub fn stop(&self) {
         self.stop_flag.store(true, Ordering::Relaxed);
+        self.spotify_controller.stop_listening();
     }
 
     // ///
