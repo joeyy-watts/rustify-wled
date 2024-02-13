@@ -1,8 +1,6 @@
 use std::error::Error;
 use std::path::Path;
-use reqwest::blocking;
 use image::{DynamicImage, ImageFormat};
-use md5::Digest;
 use std::fs;
 
 pub fn get_image_pixels(url: &str, width: &u32, height: &u32) -> Result<Vec<u8>, Box<dyn Error>> {
