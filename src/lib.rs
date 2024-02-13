@@ -19,6 +19,7 @@ pub mod lib {
         pub mod animation;
         pub mod artnet;
         pub mod spotify;
+        pub mod app;
     }
     pub mod web {
         pub mod webserver;
