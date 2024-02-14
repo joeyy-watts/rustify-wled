@@ -30,6 +30,7 @@ impl AnimationController {
     /// 
     pub fn play_animation(&self, animation: Animation) {
         // if some animation is already playing, stop it gracefuly first
+        // TODO: dynamic transitions; if play -> pause change gracefully, if change cover -> change immediately?
         if self.artnet_controller.is_playing.load(Ordering::Relaxed) {
             self.artnet_controller.stop_animation();
 
