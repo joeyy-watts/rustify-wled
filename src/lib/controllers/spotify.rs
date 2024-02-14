@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::Sender;
 use std::sync::{atomic::AtomicBool, Arc};
@@ -59,7 +60,14 @@ impl SpotifyController {
             token_cached: true,
             ..Default::default()
         };
-        let credentials: Credentials = Credentials::from_env().unwrap();
+
+        let credentials: Credentials = match Credentials::from_env() {
+            Some(_) => {
+                Credentials::from_env().unwrap()
+            },
+            None => panic!("Environment variable RSPOTIFY_CLIENT_ID and/or RSPOTIFY_CLIENT_SECRET not found"),
+        };
+
         let oauth: OAuth = OAuth {
             redirect_uri: "http://localhost:8000/callback".to_string(),
             scopes: scopes!(
