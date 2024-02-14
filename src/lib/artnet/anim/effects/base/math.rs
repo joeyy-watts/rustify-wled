@@ -1,5 +1,5 @@
 // base mathematical functions for animations
-use std::f64::{consts::PI, *};
+use std::f64::consts::PI;
 
 pub struct Math {
 
