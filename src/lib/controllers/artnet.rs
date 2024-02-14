@@ -23,13 +23,13 @@ pub struct ArtNetController2D {
 
 pub struct ArtNetController2DInner {
     pub target: String,
-    pub dimensions: (u16, u16),
+    pub size: (u8, u8),
     socket: UdpSocket,
 }
 
 impl ArtNetController2D {
-    pub fn new(target: String, dimensions: (u16, u16)) -> Self {
-        let inner: Arc<ArtNetController2DInner> = Arc::new(ArtNetController2DInner::new(target, dimensions));
+    pub fn new(target: String, size: (u8, u8)) -> Self {
+        let inner: Arc<ArtNetController2DInner> = Arc::new(ArtNetController2DInner::new(target, size));
         let is_playing = Arc::new(AtomicBool::new(false));
         let stop_flag = Arc::new(AtomicBool::new(false));
 
@@ -72,10 +72,10 @@ impl ArtNetController2D {
 /// Inner struct for ArtNetController2D
 /// to be used inside a thread
 impl ArtNetController2DInner {
-    pub fn new(target: String, dimensions: (u16, u16)) -> Self {
+    pub fn new(target: String, size: (u8, u8)) -> Self {
         let socket = UdpSocket::bind("0.0.0.0:0").expect("Unable to bind to address!");
 
-        Self { target, dimensions, socket }
+        Self { target, size, socket }
     }
 
     /// Sends a single frame (or image) to the target device
@@ -92,7 +92,7 @@ impl ArtNetController2DInner {
         // we can fit only 170 pixels/510 channels in a single universe, even though the max is 512
         // num of shards = ceil(total num of channels / 510)
         let num_shards: u16 = (
-            (((self.dimensions.0 * self.dimensions.1 * CHANNELS_PER_PIXEL) as u32) / CHANNELS_PER_SHARD as u32) + 1
+            ((((self.size.0 as u16) * (self.size.1 as u16) * CHANNELS_PER_PIXEL) as u32) / CHANNELS_PER_SHARD as u32) + 1
         ) as u16;
 
         let addr = format!("{}:6454", self.target).to_socket_addrs().unwrap().next().unwrap();

@@ -8,13 +8,14 @@ use std::sync::atomic::Ordering;
 /// `active_animation` - thread of the currently playing animation
 /// 
 pub struct AnimationController {
+    pub size: (u8, u8),
     artnet_controller: ArtNetController2D,
 }
 
 impl AnimationController {
-    pub fn new(target: String, dimensions: (u16, u16)) -> Self {
-        let artnet_controller = ArtNetController2D::new(target, dimensions);
-        Self { artnet_controller }
+    pub fn new(target: String, size: (u8, u8)) -> Self {
+        let artnet_controller = ArtNetController2D::new(target, size);
+        Self { size, artnet_controller }
     }
 
     /// Plays the given animation to the target device.

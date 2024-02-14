@@ -26,7 +26,7 @@ pub struct ApplicationController {
 ///  Main backend controller for rustify-wled
 /// 
 impl ApplicationController {
-    pub fn new(target: String, size: (u16, u16)) -> ApplicationController {
+    pub fn new(target: String, size: (u8, u8)) -> ApplicationController {
         let animation_controller = Arc::new(AnimationController::new(target, size));
 
         let (tx, rx): (Sender<PlaybackState>, Receiver<PlaybackState>) = mpsc::channel();
@@ -83,7 +83,7 @@ impl ApplicationController {
                 // play new animation
                 let image = get_image_pixels(new_playback.cover_url.unwrap().as_ref(), &32, &32).unwrap();
                 let effect = SinBrightnessEffect {period: 1.0, amplitude: 0.5, offset: 0.5};
-                let animation = Animation::new(image, (32, 32), 30, &effect);
+                let animation = Animation::new(image, 30, &effect);
                 local_animation_controller.play_animation(animation);
             }
 
