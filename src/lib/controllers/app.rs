@@ -8,7 +8,8 @@ use std::thread;
 use rspotify::ClientError;
 
 use crate::lib::artnet::anim::animation::Animation;
-use crate::lib::artnet::anim::effects::base::brightness::SinBrightnessEffect;
+use crate::lib::artnet::anim::effects::base::brightness::SinEffect;
+use crate::lib::artnet::anim::effects::effect::{EffectBuilder, WaveformParameters};
 use crate::utils::image::get_image_pixels;
 
 use super::animation::AnimationController;
@@ -82,8 +83,11 @@ impl ApplicationController {
 
                 // play new animation
                 let image = get_image_pixels(new_playback.cover_url.unwrap().as_ref(), &32, &32).unwrap();
-                let effect = SinBrightnessEffect {period: 1.0, amplitude: 0.5, offset: 0.5};
-                let animation = Animation::new(image, 30, &effect);
+                
+                let mut builder = EffectBuilder::new(30);
+                builder.add_brightness_effect(SinEffect, WaveformParameters { amplitude: 0.5, period: 1.0, offset: 0.5, exponent: 1.0 }, 1.0);
+
+                let animation = Animation::new(image, 30, builder.build());
                 local_animation_controller.play_animation(animation);
             }
 
