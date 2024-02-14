@@ -37,16 +37,17 @@ pub trait WaveformEffect {
         let range = (num_factors as f64 * slice_factor).round() as u16;
 
         for i in 0..range {
-            let multiplier = self.math_func(i, waveform_params);
+            let multiplier = self.math_func((i as f64) / (num_factors as f64), waveform_params);
             result.push(multiplier);
         }
 
         result
     }
 
-    fn math_func(&self, i: u16,waveform_params: WaveformParameters) -> f64;
+    fn math_func(&self, i: f64, waveform_params: WaveformParameters) -> f64;
 }
 
+#[derive(Copy, Clone)]
 pub struct WaveformParameters {
     pub amplitude: f64,
     pub period: f64,
@@ -79,7 +80,7 @@ impl EffectBuilder {
     // this will add effect one after the other, they don't mix
     // i'll have to implement overlay, etc. in the future
     // which will add effects on top of each other
-    pub fn add_brightness_effect(&mut self, effect: impl WaveformEffect, parameters: WaveformParameters, slice_factor: f64) {
+    pub fn add_brightness_effect(&mut self, effect: impl WaveformEffect + 'static, parameters: WaveformParameters, slice_factor: f64) {
         self.elements.push(WaveformEffectElement { effect: Box::new(effect), parameters, slice_factor });
     }
 
@@ -88,7 +89,7 @@ impl EffectBuilder {
         let mut result = Vec::new();
 
         // calculate the multiplier slices for each effect
-        for element in self.elements {
+        for element in &self.elements {
             // for each render we need the parameters, and the slice factor
             result.extend(element.effect.render(&self.target_fps, element.slice_factor, element.parameters));
         }
