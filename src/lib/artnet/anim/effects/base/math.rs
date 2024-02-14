@@ -15,4 +15,8 @@ impl Math {
     pub fn sin_wave(i: f64, amplitude: f64, period: f64, vertical_offset: f64, exponent: f64) -> f64 {
         amplitude * ((2.0 * PI * i / period).sin()).powf(exponent) + vertical_offset
     }
+
+    pub fn trunc_sin_wave(i: f64, amplitude: f64, period: f64, vertical_offset: f64, exponent: f64) -> f64 {
+        amplitude * (((2.0 * PI * i / period).sin()).powf(exponent)).abs() + vertical_offset
+    }
 }
