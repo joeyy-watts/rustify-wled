@@ -2,7 +2,7 @@ use crate::lib::artnet::anim::frame::AnimationFrame;
 
 
 /// Brightness varying effect that is ready to be applied to image to generate animation
-struct RenderedEffect {
+pub struct RenderedEffect {
     pub multipliers: Vec<f64>,
 }
 
