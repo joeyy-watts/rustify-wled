@@ -62,6 +62,7 @@ impl ApplicationController {
 
     pub fn stop(&self) {
         self.stop_flag.store(true, Ordering::Relaxed);
+        self.animation_controller.stop_animation();
         self.spotify_controller.stop_listening();
     }
 
@@ -85,7 +86,8 @@ impl ApplicationController {
                 let image = get_image_pixels(new_playback.cover_url.unwrap().as_ref(), &32, &32).unwrap();
                 
                 let mut builder = EffectBuilder::new(30);
-                builder.add_brightness_effect(SinEffect, WaveformParameters { amplitude: 0.5, period: 1.0, offset: 0.5, exponent: 1.0 }, 1.0);
+                builder.add_brightness_effect(SinEffect, WaveformParameters { amplitude: 0.5, period: 2.0, offset: 0.5, exponent: 1.0 }, 0.5);
+
 
                 let animation = Animation::new(image, 30, builder.build());
                 local_animation_controller.play_animation(animation);
