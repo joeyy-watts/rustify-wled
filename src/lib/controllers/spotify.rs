@@ -5,7 +5,7 @@ use std::sync::{atomic::AtomicBool, Arc};
 use std::thread;
 use std::time::Duration;
 
-use rspotify::model::{AdditionalType, CurrentPlaybackContext, Id, PlayableItem};
+use rspotify::model::{AdditionalType, AudioFeatures, CurrentPlaybackContext, Id, TrackId, PlayableItem};
 use rspotify::{scopes, AuthCodeSpotify, ClientError, Config, Credentials, OAuth, Token};
 use rspotify::clients::{BaseClient, OAuthClient};
 
@@ -19,15 +19,26 @@ pub struct SpotifyController {
 }
 
 /// State of the current playback, to be tracked
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub struct PlaybackState {
     pub is_playing: bool,
     pub track_name: Option<String>,
     pub track_id: Option<String>,
     pub cover_url: Option<String>,
+    pub features: Option<AudioFeatures>,
+}
+
+impl PartialEq for PlaybackState {
+    fn eq(&self, other: &Self) -> bool {
+        self.is_playing == other.is_playing &&
+        self.track_id == other.track_id
+    }
 }
 
 impl PlaybackState {
+    /// Creates PlaybackState from a CurrentPlaybackContext
+    /// 
+    /// Does not contain AudioFeatures.
     pub fn from_playback_context(context: CurrentPlaybackContext) -> Self {
         match context.item {
             Some(PlayableItem::Track(track)) => {
@@ -36,12 +47,16 @@ impl PlaybackState {
                     track_name: Some(String::from(track.name)),
                     track_id: Some(String::from(track.id.unwrap().id())),
                     cover_url: Some(track.album.images.first().unwrap().url.clone()),
+                    features: None,
                     }
             },
             Some(PlayableItem::Episode(_)) => PlaybackState::none(),
             None => PlaybackState::none(),
         }
-    
+    }
+
+    pub fn add_features(&mut self, features: AudioFeatures) {
+        self.features = Some(features);
     }
 
     pub fn none() -> Self {
@@ -50,6 +65,7 @@ impl PlaybackState {
                 track_name: None,
                 track_id: None,
                 cover_url: Some(String::from("https://play-lh.googleusercontent.com/cShys-AmJ93dB0SV8kE6Fl5eSaf4-qMMZdwEDKI5VEmKAXfzOqbiaeAsqqrEBCTdIEs")),
+                features: None,
             }
     }
 }
@@ -117,7 +133,7 @@ impl SpotifyController {
                     None::<Vec<&AdditionalType>>
                 ).unwrap(); 
                 
-                let new_playback = match new_playing {
+                let mut new_playback = match new_playing {
                     Some(context) => {
                         PlaybackState::from_playback_context(context)
                     },
@@ -126,8 +142,13 @@ impl SpotifyController {
                     }
                 };
 
-                // if playback state has changed: update self and send it
+                // if playback state has changed: get audio features, update self and send it
                 if !PlaybackState::eq(&new_playback, &local_current_playing) {
+                    let track_id = TrackId::from_id(new_playback.track_id.as_ref().unwrap()).unwrap();
+                    new_playback.add_features(
+                        local_client.track_features(track_id).unwrap()
+                    );
+
                     // clone new playback state into 2 variables, one to self, one to sender
                     // a bit messy but i can't figure it out for the life of me
                     local_current_playing = Arc::new(new_playback.clone());
