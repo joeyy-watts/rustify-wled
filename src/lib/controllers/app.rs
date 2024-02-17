@@ -8,8 +8,7 @@ use std::thread;
 use rspotify::ClientError;
 
 use crate::lib::artnet::anim::animation::Animation;
-use crate::lib::artnet::anim::effects::base::brightness::SinEffect;
-use crate::lib::artnet::anim::effects::effect::{EffectBuilder, RenderedEffect, WaveformParameters};
+use crate::lib::artnet::anim::effects::effect::RenderedEffect;
 use crate::lib::artnet::anim::effects::playback::PlaybackEffects;
 use crate::utils::image::get_image_pixels;
 
