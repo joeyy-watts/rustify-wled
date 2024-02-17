@@ -55,8 +55,8 @@ impl PlaybackState {
         }
     }
 
-    pub fn add_features(&mut self, features: AudioFeatures) {
-        self.features = Some(features);
+    pub fn add_features(&mut self, features: Option<AudioFeatures>) {
+        self.features = features;
     }
 
     pub fn none() -> Self {
@@ -144,10 +144,19 @@ impl SpotifyController {
 
                 // if playback state has changed: get audio features, update self and send it
                 if !PlaybackState::eq(&new_playback, &local_current_playing) {
-                    let track_id = TrackId::from_id(new_playback.track_id.as_ref().unwrap()).unwrap();
-                    new_playback.add_features(
-                        local_client.track_features(track_id).unwrap()
-                    );
+                    let track_id: Option<TrackId> = match new_playback.track_id.as_ref() {
+                        Some(id) => Some(TrackId::from_id(id).unwrap()),
+                        None => None,
+                    };
+                    
+                    match track_id {
+                        Some(id) => {
+                            new_playback.add_features(
+                                Some(local_client.track_features(id).unwrap())
+                            );
+                        },
+                        None => {},
+                    }
 
                     // clone new playback state into 2 variables, one to self, one to sender
                     // a bit messy but i can't figure it out for the life of me
