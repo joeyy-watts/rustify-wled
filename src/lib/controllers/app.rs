@@ -9,7 +9,8 @@ use rspotify::ClientError;
 
 use crate::lib::artnet::anim::animation::Animation;
 use crate::lib::artnet::anim::effects::base::brightness::SinEffect;
-use crate::lib::artnet::anim::effects::effect::{EffectBuilder, WaveformParameters};
+use crate::lib::artnet::anim::effects::effect::{EffectBuilder, RenderedEffect, WaveformParameters};
+use crate::lib::artnet::anim::effects::playback::PlaybackEffects;
 use crate::utils::image::get_image_pixels;
 
 use super::animation::AnimationController;
@@ -80,16 +81,25 @@ impl ApplicationController {
 
         thread::spawn(move || {
             while !local_stop_flag.load(Ordering::Relaxed) {
+                // BLOCKING: waits for new PlaybackState to be sent from SpotifyController
                 let new_playback = local_receiver.lock().unwrap().recv().unwrap();
 
                 // play new animation
                 let image = get_image_pixels(new_playback.cover_url.unwrap().as_ref(), &32, &32).unwrap();
                 
-                let mut builder = EffectBuilder::new(30);
-                builder.add_brightness_effect(SinEffect, WaveformParameters { amplitude: 0.5, period: 2.0, offset: 0.5, exponent: 1.0 }, 0.5);
+                let effect: RenderedEffect = match (new_playback.is_playing, new_playback.features) {
+                    (true, Some(features)) => {
+                        PlaybackEffects::play_features(30, features)
+                    },
+                    (true, None) => {
+                        PlaybackEffects::play(30)
+                    },
+                    (false, _) => {
+                        PlaybackEffects::pause(30)
+                    }
+                };
 
-
-                let animation = Animation::new(image, 30, builder.build());
+                let animation = Animation::new(image, 30, effect);
                 local_animation_controller.play_animation(animation);
             }
 
