@@ -37,7 +37,7 @@ pub trait WaveformEffect {
         let range = (num_factors as f64 * slice_factor).round() as u16;
 
         for i in 0..range {
-            let multiplier = self.math_func((i as f64) / (num_factors as f64), waveform_params);
+            let multiplier = self.math_func(waveform_params.period * ((i as f64) / (num_factors as f64)), waveform_params);
             result.push(multiplier);
         }
 
@@ -59,6 +59,8 @@ pub struct WaveformEffectElement {
     effect: Box<dyn WaveformEffect>,
     parameters: WaveformParameters,
     // 0.0 - 1.0, how much of the waveform effect is needed
+    // TODO: either make this a tuple to get specific part of slice (start, end)
+    // or have to implement horizontal offset in effects
     slice_factor: f64,
 }
 
