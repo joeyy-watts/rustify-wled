@@ -10,6 +10,14 @@ This web application is intended to be used with a WLED LED matrix device.
 - applies animations according to: playback state (play/pause), the track's tempo and energy, etc.
 - *more to be added*
 
+<div align="center">
+  
+| Play Animation | Pause Animation |
+| -------------- | --------------- |
+|<img src="./assets/play.gif" width="250" height="250"/> | <img src="./assets/pause.gif" width="250" height="250"/> |
+
+</div>
+
 ## Usage
 
 *a lot of things are currently hardcoded, I will make proper configs eventually..*
