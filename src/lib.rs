@@ -7,7 +7,6 @@ pub mod lib {
                         pub mod brightness;
                         pub mod math;
                         pub mod overlay;
-                        pub mod r#static;
                     }
                     pub mod effect;
             }
