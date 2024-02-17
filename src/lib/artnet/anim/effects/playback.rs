@@ -39,12 +39,12 @@ impl PlaybackEffects {
     pub fn play_features(target_fps: u8, features: AudioFeatures) -> RenderedEffect {
         // period is doubled since the sin wave crest needs to correspond to each beat
         let period: f64 = (1.0 / (features.tempo / (60.0 * 2.0))) as f64;
-        let exponent: f64 = (features.energy * 10.0) as f64;
+        let exponent: f64 = (features.energy * 10.0).round() as f64;
 
         let mut builder = EffectBuilder::new(target_fps);
         builder.add_brightness_effect(
             TruncSinEffect, 
-            WaveformParameters { amplitude: 0.5, period, offset: 0.5, exponent },
+            WaveformParameters { amplitude: -0.3, period, offset: 0.6, exponent },
             1.0
         );
 
