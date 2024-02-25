@@ -19,4 +19,8 @@ impl Math {
     pub fn trunc_sin_wave(i: f64, amplitude: f64, period: f64, vertical_offset: f64, exponent: f64) -> f64 {
         amplitude * (((2.0 * PI * i / period).sin()).powf(exponent)).abs() + vertical_offset
     }
+
+    pub fn linear(i: f64, slope: f64, intercept: f64) -> f64 {
+        (slope * i) + intercept
+    }
 }
