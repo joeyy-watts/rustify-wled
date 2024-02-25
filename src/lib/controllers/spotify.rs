@@ -4,6 +4,7 @@ use std::sync::mpsc::Sender;
 use std::sync::{atomic::AtomicBool, Arc};
 use std::thread;
 use std::time::Duration;
+use std::io::{self, Write};
 
 use rspotify::model::{AdditionalType, AudioFeatures, CurrentPlaybackContext, Id, TrackId, PlayableItem};
 use rspotify::{scopes, AuthCodeSpotify, ClientError, Config, Credentials, OAuth, Token};
@@ -81,7 +82,9 @@ impl SpotifyController {
             Some(_) => {
                 Credentials::from_env().unwrap()
             },
-            None => panic!("Environment variable RSPOTIFY_CLIENT_ID and/or RSPOTIFY_CLIENT_SECRET not found"),
+            None => {
+                SpotifyController::id_secret_prompt().unwrap()
+            }
         };
 
         let oauth: OAuth = OAuth {
@@ -103,6 +106,25 @@ impl SpotifyController {
         let current_playing = Arc::new(PlaybackState::none());
    
         Self { client, stop_flag, sender, current_playing }
+    }
+
+    fn id_secret_prompt() -> Option<Credentials> {
+        println!("RSPOTIFY_CLIENT_ID/RSPOTIFY_CLIENT_SECRET not found in environment");
+        print!("Enter RSPOTIFY_CLIENT_ID: ");
+        let _ = io::stdout().flush();
+        let mut client_id = String::new();
+        io::stdin().read_line(&mut client_id).expect("Unable to read RSPOTIFY_CLIENT_ID");
+
+        print!("Enter RSPOTIFY_CLIENT_SECRET: ");
+        let mut client_secret = String::new();
+        let _ = io::stdout().flush();
+        io::stdin().read_line(&mut client_secret).expect("Unable to read RSPOTIFY_CLIENT_SECRET");
+
+        if client_id.len() == 0 || client_secret.len() == 0 {
+            panic!("RSPOTIFY_CLIENT_ID and RSPOTIFY_CLIENT_SECRET cannot be empty!")
+        }
+
+        Some(Credentials::new(client_id.trim().as_ref(), client_secret.trim().as_ref()))
     }
 
     pub fn get_token(&self) -> Option<Token> {
