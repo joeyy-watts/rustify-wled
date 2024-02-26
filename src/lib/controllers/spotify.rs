@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::Sender;
 use std::sync::{atomic::AtomicBool, Arc};
@@ -141,7 +140,7 @@ impl SpotifyController {
 
     pub fn start_listening(&self) {
         // initialize loop, send None first
-        self.sender.send(PlaybackState::none());
+        let _ = self.sender.send(PlaybackState::none());
 
         let local_client = self.client.clone();
         let mut local_current_playing = self.current_playing.clone();

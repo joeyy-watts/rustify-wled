@@ -5,7 +5,7 @@ use std::time::Duration;
 use std::{cmp, thread};
 use artnet_protocol::*;
 use crate::lib::artnet::anim::animation::Animation;
-use crate::lib::artnet::anim::frame::{self, AnimationFrame};
+use crate::lib::artnet::anim::frame::AnimationFrame;
 
 
 /// Controller module for 2D (matrix-based) ArtNet devices
