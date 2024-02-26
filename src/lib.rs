@@ -3,12 +3,15 @@ pub mod lib {
             pub mod anim {
                 pub mod effects {
                     pub mod playback;
+                    pub mod transitions;
                     pub mod base {
+                        pub mod linear_effects;
+                        pub mod waveform_effects;
                         pub mod brightness;
                         pub mod math;
                         pub mod overlay;
+                        pub mod effect;
                     }
-                    pub mod effect;
             }
             pub mod animation;
             pub mod frame;

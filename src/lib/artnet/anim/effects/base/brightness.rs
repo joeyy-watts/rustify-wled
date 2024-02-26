@@ -1,4 +1,4 @@
-use crate::lib::artnet::anim::effects::effect::{WaveformEffect, WaveformParameters};
+use crate::lib::artnet::anim::effects::base::waveform_effects::{WaveformEffect, WaveformParameters};
 use self::super::math::Math;
 
 

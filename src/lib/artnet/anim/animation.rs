@@ -1,4 +1,4 @@
-use super::effects::effect::RenderedEffect;
+use super::effects::base::effect::RenderedEffect;
 use super::frame::AnimationFrame;
 
 #[derive(Clone)]
