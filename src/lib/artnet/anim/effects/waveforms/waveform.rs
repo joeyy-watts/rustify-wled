@@ -29,6 +29,7 @@ pub trait WaveformEffect {
 pub struct WaveformParameters {
     pub amplitude: f64,
     pub period: f64,
-    pub offset: f64,
+    pub v_offset: f64,
+    pub h_offset: f64,
     pub exponent: f64,
 }
