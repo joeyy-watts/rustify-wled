@@ -1,6 +1,7 @@
 use rspotify::model::AudioFeatures;
 
-use super::base::{brightness::{SinEffect, TruncSinEffect}, effect::{EffectBuilder, RenderedEffect}, waveform_effects::WaveformParameters};
+use super::{base::effect::{EffectBuilder, RenderedEffect}, waveforms::{waveform::WaveformParameters, waveform_impl::{SinEffect, TruncSinEffect}}};
+
 
 /// Playback effects built from effects in base module.
 /// 

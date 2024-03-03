@@ -1,6 +1,4 @@
-use crate::lib::artnet::anim::frame::AnimationFrame;
-
-use super::waveform_effects::{WaveformEffect, WaveformParameters};
+use crate::lib::artnet::anim::{effects::waveforms::waveform::{WaveformEffect, WaveformParameters}, frame::AnimationFrame};
 
 
 /// Brightness varying effect that is ready to be applied to image to generate animation

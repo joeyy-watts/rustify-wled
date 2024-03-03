@@ -1,6 +1,11 @@
+use crate::lib::artnet::anim::effects::base::effect::RenderedEffect;
+use crate::lib::artnet::anim::effects::playback::PlaybackEffects;
 use crate::lib::controllers::artnet::ArtNetController2D;
 use crate::lib::artnet::anim::animation::Animation;
+use crate::utils::image::get_image_pixels;
 use std::sync::atomic::Ordering;
+
+use super::spotify::PlaybackState;
 
 /// Controller for playing animations to target ArtNet devices
 /// 
@@ -28,20 +33,35 @@ impl AnimationController {
     /// Returns:
     ///     A Result indicating the success of the operation
     /// 
-    pub fn play_animation(&self, animation: Animation) {
-        // if some animation is already playing, stop it gracefuly first
-        // TODO: dynamic transitions; if play -> pause change gracefully, if change cover -> change immediately?
+    /// Plays animation according to the given PlaybackState
+    pub fn play_from_playback(&self, playback: PlaybackState) {
+        // if some animation is already playing, stop it
         if self.artnet_controller.is_playing.load(Ordering::Relaxed) {
             self.artnet_controller.stop_animation();
-
-                while self.artnet_controller.is_playing.load(Ordering::Relaxed) {
-                    // wait for the the animation to stop gracefully
-                }  
+            
+            while self.artnet_controller.is_playing.load(Ordering::Relaxed) {
+            }
         }
+
+        let image = get_image_pixels(playback.cover_url.unwrap().as_ref(), &32, &32).unwrap();
+                
+        let effect: RenderedEffect = match (playback.is_playing, playback.features) {
+            (true, Some(features)) => {
+                PlaybackEffects::play_features(30, features)
+            },
+            (true, None) => {
+                PlaybackEffects::play(30)
+            },
+            (false, _) => {
+                PlaybackEffects::pause(30)
+            }
+        };
+
+        let animation = Animation::new(image, 30, effect);
 
         let frame_interval = 1.0 / animation.target_fps as f64;
 
-        self.artnet_controller.send_frames(animation.frames, frame_interval);
+        self.artnet_controller.send_animation(animation, frame_interval);
     }
 
     pub fn stop_animation(&self) {

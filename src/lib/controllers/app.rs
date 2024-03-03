@@ -7,11 +7,6 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use rspotify::ClientError;
 
-use crate::lib::artnet::anim::animation::Animation;
-use crate::lib::artnet::anim::effects::effect::RenderedEffect;
-use crate::lib::artnet::anim::effects::playback::PlaybackEffects;
-use crate::utils::image::get_image_pixels;
-
 use super::animation::AnimationController;
 use super::spotify::{PlaybackState, SpotifyController};
 
@@ -83,23 +78,7 @@ impl ApplicationController {
                 // BLOCKING: waits for new PlaybackState to be sent from SpotifyController
                 let new_playback = local_receiver.lock().unwrap().recv().unwrap();
 
-                // play new animation
-                let image = get_image_pixels(new_playback.cover_url.unwrap().as_ref(), &32, &32).unwrap();
-                
-                let effect: RenderedEffect = match (new_playback.is_playing, new_playback.features) {
-                    (true, Some(features)) => {
-                        PlaybackEffects::play_features(30, features)
-                    },
-                    (true, None) => {
-                        PlaybackEffects::play(30)
-                    },
-                    (false, _) => {
-                        PlaybackEffects::pause(30)
-                    }
-                };
-
-                let animation = Animation::new(image, 30, effect);
-                local_animation_controller.play_animation(animation);
+                local_animation_controller.play_from_playback(new_playback);
             }
 
             local_stop_flag.store(false, Ordering::Relaxed);

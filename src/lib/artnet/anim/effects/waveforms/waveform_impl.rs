@@ -1,5 +1,4 @@
-use crate::lib::artnet::anim::effects::base::waveform_effects::{WaveformEffect, WaveformParameters};
-use self::super::math::Math;
+use crate::lib::artnet::anim::effects::{base::math::Math, waveforms::waveform::{WaveformEffect, WaveformParameters}};
 
 
 pub struct SinEffect;

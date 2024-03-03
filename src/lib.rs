@@ -4,10 +4,12 @@ pub mod lib {
                 pub mod effects {
                     pub mod playback;
                     pub mod transitions;
+                    pub mod waveforms {
+                        pub mod waveform;
+                        pub mod waveform_impl;
+                    }
                     pub mod base {
                         pub mod linear_effects;
-                        pub mod waveform_effects;
-                        pub mod brightness;
                         pub mod math;
                         pub mod overlay;
                         pub mod effect;
