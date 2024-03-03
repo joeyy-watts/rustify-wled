@@ -12,7 +12,7 @@ pub struct PlaybackEffects;
 impl PlaybackEffects {
     pub fn play(target_fps: u8) -> RenderedEffect {
         let mut builder = EffectBuilder::new(target_fps);
-        builder.add_brightness_effect(TruncSinEffect, WaveformParameters { amplitude: 0.5, period: 2.0, offset: 0.5, exponent: 1.0 }, 0.5);
+        builder.add_brightness_effect(TruncSinEffect, WaveformParameters { amplitude: 0.5, period: 2.0, v_offset: 0.5, h_offset: 0.0, exponent: 1.0 }, 0.5);
 
         builder.build()
     }
@@ -23,14 +23,14 @@ impl PlaybackEffects {
         // breathing effect
         builder.add_brightness_effect(
             TruncSinEffect, 
-            WaveformParameters { amplitude: 0.3, period: 1.0, offset: 0.7, exponent: 1.0 }, 
+            WaveformParameters { amplitude: 0.3, period: 1.0, v_offset: 0.7, h_offset: 0.0, exponent: 1.0 }, 
             1.0
         );
 
         // full sin wave between breathe
         builder.add_brightness_effect(
             SinEffect,
-            WaveformParameters { amplitude: 0.3, period: 2.0, offset: 0.7, exponent: 1.0 },
+            WaveformParameters { amplitude: 0.3, period: 2.0, v_offset: 0.7, h_offset: 0.0, exponent: 1.0 },
             1.0
         );
 
@@ -45,7 +45,7 @@ impl PlaybackEffects {
         let mut builder = EffectBuilder::new(target_fps);
         builder.add_brightness_effect(
             TruncSinEffect, 
-            WaveformParameters { amplitude: -0.3, period, offset: 0.6, exponent },
+            WaveformParameters { amplitude: -0.3, period, v_offset: 0.6, h_offset: 0.0, exponent },
             1.0
         );
 
