@@ -10,15 +10,15 @@ pub struct Math;
 /// effects to generate the correct number of multipliers.
 /// 
 impl Math {
-    pub fn sin_wave(i: f64, amplitude: f64, period: f64, vertical_offset: f64, exponent: f64) -> f64 {
-        amplitude * ((2.0 * PI * i / period).sin()).powf(exponent) + vertical_offset
+    pub fn sin_wave(i: f64, amplitude: f64, period: f64, v_offset: f64, h_offset: f64, exponent: f64) -> f64 {
+        amplitude * ((2.0 * PI * (i + h_offset) / period).sin()).powf(exponent) + v_offset
     }
 
-    pub fn trunc_sin_wave(i: f64, amplitude: f64, period: f64, vertical_offset: f64, exponent: f64) -> f64 {
-        amplitude * (((2.0 * PI * i / period).sin()).powf(exponent)).abs() + vertical_offset
+    pub fn trunc_sin_wave(i: f64, amplitude: f64, period: f64, v_offset: f64, h_offset: f64, exponent: f64) -> f64 {
+        amplitude * (((2.0 * PI * (i + h_offset) / period).sin()).powf(exponent)).abs() + v_offset
     }
 
-    pub fn sawtooth(i: f64, amplitude: f64, period: f64, vertical_offset: f64) -> f64 {
-        2.0 * amplitude * (i - (0.5 + i).floor()) + vertical_offset
+    pub fn sawtooth(i: f64, amplitude: f64, period: f64, v_offset: f64, h_offset: f64) -> f64 {
+        2.0 * amplitude * ((i + h_offset) - (0.5 + (i + h_offset)).floor()) + v_offset
     }
 }
