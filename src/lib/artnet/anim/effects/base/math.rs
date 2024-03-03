@@ -1,9 +1,7 @@
 // base mathematical functions for animations
 use std::f64::consts::PI;
 
-pub struct Math {
-
-}
+pub struct Math;
 
 
 /// Math functions for generating waveforms
@@ -20,7 +18,7 @@ impl Math {
         amplitude * (((2.0 * PI * i / period).sin()).powf(exponent)).abs() + vertical_offset
     }
 
-    pub fn linear(i: f64, slope: f64, intercept: f64) -> f64 {
-        (slope * i) + intercept
+    pub fn sawtooth(i: f64, amplitude: f64, period: f64, vertical_offset: f64, exponent: f64) -> f64 {
+        2.0 * amplitude * (i - (0.5 + i).floor()) + vertical_offset
     }
 }
