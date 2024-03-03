@@ -18,7 +18,7 @@ impl Math {
         amplitude * (((2.0 * PI * i / period).sin()).powf(exponent)).abs() + vertical_offset
     }
 
-    pub fn sawtooth(i: f64, amplitude: f64, period: f64, vertical_offset: f64, exponent: f64) -> f64 {
+    pub fn sawtooth(i: f64, amplitude: f64, period: f64, vertical_offset: f64) -> f64 {
         2.0 * amplitude * (i - (0.5 + i).floor()) + vertical_offset
     }
 }
