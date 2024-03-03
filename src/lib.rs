@@ -9,7 +9,6 @@ pub mod lib {
                         pub mod waveform_impl;
                     }
                     pub mod base {
-                        pub mod linear_effects;
                         pub mod math;
                         pub mod overlay;
                         pub mod effect;
