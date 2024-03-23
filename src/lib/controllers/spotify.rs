@@ -134,8 +134,8 @@ impl SpotifyController {
         self.client.get_authorize_url(false).unwrap()
     }
 
-    pub fn get_access_token(&self, response_code: &str) -> Result<(), ClientError> {
-        self.client.request_token(response_code)
+    pub fn get_access_token(&self, code: &str) -> Result<(), ClientError> {
+        self.client.request_token(code)
     }
 
     pub fn start_listening(&self) {
