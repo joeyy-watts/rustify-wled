@@ -1,7 +1,7 @@
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::Sender;
 use std::sync::{atomic::AtomicBool, Arc};
-use std::thread;
+use std::{env, thread};
 use std::time::Duration;
 use std::io::{self, Write};
 
@@ -122,6 +122,10 @@ impl SpotifyController {
         if client_id.len() == 0 || client_secret.len() == 0 {
             panic!("RSPOTIFY_CLIENT_ID and RSPOTIFY_CLIENT_SECRET cannot be empty!")
         }
+
+        // persist client id/secret to env var
+        env::set_var("RSPOTIFY_CLIENT_ID", client_id.clone());
+        env::set_var("RSPOTIFY_CLIENT_SECRET", client_secret.clone());
 
         Some(Credentials::new(client_id.trim().as_ref(), client_secret.trim().as_ref()))
     }
