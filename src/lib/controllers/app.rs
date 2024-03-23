@@ -41,18 +41,31 @@ impl ApplicationController {
         // if not, return redirect to Spotify auth (this will be called again after auth)
 
         // if token does not exist, redirect to Spotify auth
-        // TODO: if token exists but is expired, refresh token
-        if self.spotify_controller.get_token().is_none() {
-            let auth_url = self.spotify_controller.get_authorize_url();
+        match self.spotify_controller.get_token() {
+            Some(token) if !token.is_expired() => {
+                self.spotify_controller.start_listening();
+                self.start_loop();
 
-            // redirect to Spotify auth
-            Ok(Either::Left(Redirect::to(auth_url)))
-        } else {
-            // start listening loop
-            self.spotify_controller.start_listening();
-            self.start_loop();
+                Ok(Either::Right("start!".to_string()))
+            },
+            Some(token) if token.is_expired() => {
+                // refresh token first
+                let _ = self.spotify_controller.get_access_token(token.refresh_token.unwrap().as_ref());
+                
+                self.spotify_controller.start_listening();
+                self.start_loop();
 
-            Ok(Either::Right("start!".to_string()))
+                Ok(Either::Right("started with refreshed token!".to_string()))
+            },
+            Some(_) => {
+                Ok(Either::Right("shouldn't be here m8".to_string()))
+            },
+            None => {
+                let auth_url = self.spotify_controller.get_authorize_url();
+
+                // redirect to Spotify auth
+                Ok(Either::Left(Redirect::to(auth_url)))
+            }
         }
     }
 
@@ -88,7 +101,7 @@ impl ApplicationController {
                     }
                     // channel disconnected, stop loop
                     Err(mpsc::TryRecvError::Disconnected) => {
-                        println!("SpotifyController disconnected. Stopping applicaiton loop.");
+                        println!("SpotifyController disconnected. Stopping application loop.");
                         break;
                     }
                 }
