@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 use rspotify::ClientError;
 
 use super::animation::AnimationController;
@@ -75,10 +76,24 @@ impl ApplicationController {
 
         thread::spawn(move || {
             while !local_stop_flag.load(Ordering::Relaxed) {
-                // BLOCKING: waits for new PlaybackState to be sent from SpotifyController
-                let new_playback = local_receiver.lock().unwrap().recv().unwrap();
+                // asynchronously try to get data from sender
+                match local_receiver.lock().unwrap().try_recv() {
+                    // new playback state found, play it
+                    Ok(new_playback) => {
+                        local_animation_controller.play_from_playback(new_playback);
+                    }
+                    // empty, move on
+                    Err(mpsc::TryRecvError::Empty) => {
+                        // Channel is empty, continue with the next iteration
+                    }
+                    // channel disconnected, stop loop
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        println!("SpotifyController disconnected. Stopping applicaiton loop.");
+                        break;
+                    }
+                }
 
-                local_animation_controller.play_from_playback(new_playback);
+                thread::sleep(Duration::from_secs_f64(0.5));
             }
 
             local_stop_flag.store(false, Ordering::Relaxed);
