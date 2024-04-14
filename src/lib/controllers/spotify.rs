@@ -71,6 +71,10 @@ impl PlaybackState {
 }
 
 impl SpotifyController {
+    /////////////////////////////////////////
+    /// Public Functions
+    /////////////////////////////////////////
+
     pub fn new(anim_sender: Sender<PlaybackState>) -> Self {
         let client = Arc::new(SpotifyController::get_client());
 
@@ -84,15 +88,33 @@ impl SpotifyController {
         Self { client, stop_flag, sender, current_playing }
     }
 
-    pub fn start_listening(&self) {
-        // initialize loop, send None first
+    pub fn start(&self) {
+        // initialization, send None first
         let _ = self.sender.send(PlaybackState::none());
 
+        // spawn thread for Spotify polling
+        self.spawn_thread();
+    }
+
+    pub fn stop(&self) {
+        self.stop_flag.store(true, Ordering::Relaxed);
+    }
+
+    /////////////////////////////////////////
+    /// Internal Functions
+    /////////////////////////////////////////
+
+    fn spawn_thread(&self) {
+        // owned by controller
         let local_client = self.client.clone();
-        let mut local_current_playing = self.current_playing.clone();
+        // already valid; clone the sender
         let local_sender = self.sender.clone();
+        // still need; this is valid
         let local_stop_flag = self.stop_flag.clone();
 
+        // should be owned by thread
+        let mut local_current_playing = self.current_playing.clone();
+        
         thread::spawn(move || {
             while !local_stop_flag.load(Ordering::Relaxed) {
                 let new_playing = local_client.current_playback(
@@ -143,12 +165,8 @@ impl SpotifyController {
         });
     }
 
-    pub fn stop_listening(&self) {
-        self.stop_flag.store(true, Ordering::Relaxed);
-    }
-
     /////////////////////////////////////////
-    // rspotify client related methods
+    // rspotify Client-related Methods
     ////////////////////////////////////////
     
     fn get_client() -> AuthCodeSpotify {
