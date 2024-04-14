@@ -31,4 +31,5 @@ pub mod lib {
 
 pub mod utils {
     pub mod image;
+    pub mod spotify;
 }
