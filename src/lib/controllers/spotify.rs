@@ -1,7 +1,7 @@
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::Sender;
 use std::sync::{atomic::AtomicBool, Arc};
-use std::thread::{self, current};
+use std::thread::{self};
 use std::time::Duration;
 use rspotify::model::{AdditionalType, TrackId};
 use rspotify::{AuthCodeSpotify, ClientError, Token};
@@ -16,7 +16,6 @@ pub struct SpotifyController {
     pub client: Arc<AuthCodeSpotify>,
     stop_flag: Arc<AtomicBool>,
     sender: Arc<Sender<PlaybackState>>,
-    current_playing: Arc<PlaybackState>,
 }
 
 
@@ -32,10 +31,8 @@ impl SpotifyController {
 
         // sender to send message to AnimationController
         let sender: Arc<Sender<PlaybackState>> = Arc::new(anim_sender);
-
-        let current_playing = Arc::new(PlaybackState::none());
    
-        Self { client, stop_flag, sender, current_playing }
+        Self { client, stop_flag, sender }
     }
 
     pub fn start(&self) {
