@@ -1,4 +1,4 @@
-use super::effects::base::effect::RenderedEffect;
+use crate::lib::artnet::anim::effects::base::effect::RenderedEffect;
 use super::frame::AnimationFrame;
 
 #[derive(Clone)]

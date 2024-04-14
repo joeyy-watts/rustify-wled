@@ -4,8 +4,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{cmp, thread};
 use artnet_protocol::*;
-use crate::lib::artnet::anim::animation::Animation;
-use crate::lib::artnet::anim::frame::AnimationFrame;
+
+use crate::lib::models::animation::Animation;
+use crate::lib::models::frame::AnimationFrame;
 
 
 /// Controller module for 2D (matrix-based) ArtNet devices

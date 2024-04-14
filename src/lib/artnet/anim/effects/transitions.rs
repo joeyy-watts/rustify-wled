@@ -1,4 +1,4 @@
-use super::{base::{effect::{EffectBuilder, RenderedEffect}}, waveforms::{waveform::WaveformParameters, waveform_impl::SawtoothEffect}};
+use super::{base::effect::{EffectBuilder, RenderedEffect}, waveforms::{waveform::WaveformParameters, waveform_impl::SawtoothEffect}};
 
 pub struct TransitionEffects;
 

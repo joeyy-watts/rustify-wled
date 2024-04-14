@@ -14,8 +14,6 @@ pub mod lib {
                         pub mod effect;
                     }
             }
-            pub mod animation;
-            pub mod frame;
         }
     }
     pub mod controllers {
@@ -23,6 +21,10 @@ pub mod lib {
         pub mod artnet;
         pub mod spotify;
         pub mod app;
+    }
+    pub mod models {
+        pub mod animation;
+        pub mod frame;
     }
     pub mod web {
         pub mod webserver;
