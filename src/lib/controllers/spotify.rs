@@ -4,7 +4,7 @@ use std::sync::{atomic::AtomicBool, Arc};
 use std::thread;
 use std::time::Duration;
 use rspotify::model::{AdditionalType, AudioFeatures, CurrentPlaybackContext, Id, TrackId, PlayableItem};
-use rspotify::AuthCodeSpotify;
+use rspotify::{AuthCodeSpotify, ClientError, Token};
 use rspotify::clients::{BaseClient, OAuthClient};
 
 use crate::utils::spotify::get_client;
@@ -163,5 +163,21 @@ impl SpotifyController {
 
             local_stop_flag.store(false, Ordering::Relaxed);
         });
+    }
+
+    /////////////////////////////////////////
+    /// rspotify Client-related Functions
+    /////////////////////////////////////////
+    
+    pub fn get_token(&self) -> Option<Token> {
+        self.client.get_token().lock().unwrap().clone()
+    }
+    
+    pub fn get_authorize_url(&self) -> String {
+        self.client.get_authorize_url(false).unwrap()
+    }
+    
+    pub fn get_access_token(&self, code: &str) -> Result<(), ClientError> {
+        self.client.request_token(code)
     }
 }

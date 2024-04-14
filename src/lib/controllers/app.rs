@@ -43,7 +43,7 @@ impl ApplicationController {
         // if token does not exist, redirect to Spotify auth
         match self.spotify_controller.get_token() {
             Some(token) if !token.is_expired() => {
-                self.spotify_controller.start_listening();
+                self.spotify_controller.start();
                 self.start_loop();
 
                 Ok(Either::Right("start!".to_string()))
@@ -52,7 +52,7 @@ impl ApplicationController {
                 // refresh token first
                 let _ = self.spotify_controller.get_access_token(token.refresh_token.unwrap().as_ref());
                 
-                self.spotify_controller.start_listening();
+                self.spotify_controller.start();
                 self.start_loop();
 
                 Ok(Either::Right("started with refreshed token!".to_string()))
@@ -72,7 +72,7 @@ impl ApplicationController {
     pub fn stop(&self) {
         self.stop_flag.store(true, Ordering::Relaxed);
         self.animation_controller.stop_animation();
-        self.spotify_controller.stop_listening();
+        self.spotify_controller.stop();
     }
 
     // ///

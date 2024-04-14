@@ -64,15 +64,3 @@ pub fn id_secret_prompt() -> Option<Credentials> {
 
     Some(Credentials::new(client_id.trim().as_ref(), client_secret.trim().as_ref()))
 }
-
-pub fn get_token(client: &AuthCodeSpotify) -> Option<Token> {
-    client.get_token().lock().unwrap().clone()
-}
-
-pub fn get_authorize_url(client: &AuthCodeSpotify) -> String {
-    client.get_authorize_url(false).unwrap()
-}
-
-pub fn get_access_token(client: &AuthCodeSpotify, code: &str) -> Result<(), ClientError> {
-    client.request_token(code)
-}
