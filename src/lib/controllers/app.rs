@@ -8,8 +8,10 @@ use std::thread;
 use std::time::Duration;
 use rspotify::ClientError;
 
+use crate::lib::models::playback_state::PlaybackState;
+
 use super::animation::AnimationController;
-use super::spotify::{PlaybackState, SpotifyController};
+use super::spotify::SpotifyController;
 
 
 pub struct ApplicationController {

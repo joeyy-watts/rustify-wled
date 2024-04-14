@@ -25,6 +25,7 @@ pub mod lib {
     pub mod models {
         pub mod animation;
         pub mod frame;
+        pub mod playback_state;
     }
     pub mod web {
         pub mod webserver;

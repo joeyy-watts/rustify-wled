@@ -2,10 +2,9 @@ use crate::lib::artnet::anim::effects::base::effect::RenderedEffect;
 use crate::lib::artnet::anim::effects::playback::PlaybackEffects;
 use crate::lib::controllers::artnet::ArtNetController2D;
 use crate::lib::models::animation::Animation;
+use crate::lib::models::playback_state::PlaybackState;
 use crate::utils::image::get_image_pixels;
 use std::sync::atomic::Ordering;
-
-use super::spotify::PlaybackState;
 
 /// Controller for playing animations to target ArtNet devices
 /// 
