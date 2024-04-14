@@ -105,11 +105,8 @@ impl SpotifyController {
     /////////////////////////////////////////
 
     fn spawn_thread(&self) {
-        // owned by controller
         let local_client = self.client.clone();
-        // already valid; clone the sender
         let local_sender = self.sender.clone();
-        // still need; this is valid
         let local_stop_flag = self.stop_flag.clone();
 
         
@@ -146,11 +143,13 @@ impl SpotifyController {
     ///    - bool: whether the controller should update animation
     ///    - PlaybackState: the current playback state
     fn should_update(client: &AuthCodeSpotify, current_playing: &PlaybackState) -> (bool, PlaybackState) {
+        // current playback context from rspotify client
         let context = client.current_playback(
             None, 
             None::<Vec<&AdditionalType>>
         ).unwrap();
 
+        // convert context to PlaybackState
         let mut new_playback = match context {
             Some(context) => {
                 PlaybackState::from_playback_context(context)
@@ -160,7 +159,9 @@ impl SpotifyController {
             }
         };
 
+        // check if state has changed
         if !PlaybackState::eq(&new_playback, &current_playing) {
+            // if state has changed, get audio features and return `true`
             let track_id: Option<TrackId> = match new_playback.track_id.as_ref() {
                 Some(id) => Some(TrackId::from_id(id).unwrap()),
                 None => None,
