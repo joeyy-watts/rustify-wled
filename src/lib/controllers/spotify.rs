@@ -1,7 +1,7 @@
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::Sender;
 use std::sync::{atomic::AtomicBool, Arc};
-use std::thread;
+use std::thread::{self, current};
 use std::time::Duration;
 use rspotify::model::{AdditionalType, AudioFeatures, CurrentPlaybackContext, Id, TrackId, PlayableItem};
 use rspotify::{AuthCodeSpotify, ClientError, Token};
@@ -112,57 +112,73 @@ impl SpotifyController {
         // still need; this is valid
         let local_stop_flag = self.stop_flag.clone();
 
-        // should be owned by thread
-        let mut local_current_playing = self.current_playing.clone();
         
         thread::spawn(move || {
+            // keeps the current playback state
+            let mut current_playing: PlaybackState = PlaybackState::none();
+
             while !local_stop_flag.load(Ordering::Relaxed) {
-                let new_playing = local_client.current_playback(
-                    None, 
-                    None::<Vec<&AdditionalType>>
-                ).unwrap(); 
-                
-                let mut new_playback = match new_playing {
-                    Some(context) => {
-                        PlaybackState::from_playback_context(context)
+                let update = SpotifyController::should_update(&local_client, &current_playing);
+
+                match update {
+                    (true, new_playback) => {
+                        current_playing = new_playback;
+                        match local_sender.send(current_playing.clone()) {
+                            Ok(_) => {},
+                            Err(_) => {},
+                        }
                     },
-                    None => {
-                        PlaybackState::none()
-                    }
-                };
-
-                // if playback state has changed: get audio features, update self and send it
-                if !PlaybackState::eq(&new_playback, &local_current_playing) {
-                    let track_id: Option<TrackId> = match new_playback.track_id.as_ref() {
-                        Some(id) => Some(TrackId::from_id(id).unwrap()),
-                        None => None,
-                    };
-                    
-                    match track_id {
-                        Some(id) => {
-                            new_playback.add_features(
-                                Some(local_client.track_features(id).unwrap())
-                            );
-                        },
-                        None => {},
-                    }
-
-                    // clone new playback state into 2 variables, one to self, one to sender
-                    // a bit messy but i can't figure it out for the life of me
-                    local_current_playing = Arc::new(new_playback.clone());
-
-                    match local_sender.send(new_playback) {
-                        // TODO: add error handling
-                        Ok(_) => {},
-                        Err(_) => {},
-                    }
+                    (false, _) => {},
                 }
-                
+
                 thread::sleep(Duration::from_secs(2));
             }
 
             local_stop_flag.store(false, Ordering::Relaxed);
         });
+    }
+
+
+    ///
+    /// Determines whether the controller should update animation.
+    /// 
+    /// Returns:
+    ///    - bool: whether the controller should update animation
+    ///    - PlaybackState: the current playback state
+    fn should_update(client: &AuthCodeSpotify, current_playing: &PlaybackState) -> (bool, PlaybackState) {
+        let context = client.current_playback(
+            None, 
+            None::<Vec<&AdditionalType>>
+        ).unwrap();
+
+        let mut new_playback = match context {
+            Some(context) => {
+                PlaybackState::from_playback_context(context)
+            },
+            None => {
+                PlaybackState::none()
+            }
+        };
+
+        if !PlaybackState::eq(&new_playback, &current_playing) {
+            let track_id: Option<TrackId> = match new_playback.track_id.as_ref() {
+                Some(id) => Some(TrackId::from_id(id).unwrap()),
+                None => None,
+            };
+            
+            match track_id {
+                Some(id) => {
+                    new_playback.add_features(
+                        Some(client.track_features(id).unwrap())
+                    );
+                },
+                None => {},
+            }
+
+            (true, new_playback)
+        } else {
+            (false, new_playback)
+        }
     }
 
     /////////////////////////////////////////
