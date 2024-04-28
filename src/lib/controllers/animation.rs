@@ -5,11 +5,25 @@ use crate::lib::models::animation::Animation;
 use crate::lib::models::playback_state::PlaybackState;
 use crate::utils::image::get_image_pixels;
 use std::sync::atomic::Ordering;
+use std::sync::mpsc::{self, Receiver};
+use std::sync::{Arc, Mutex};
+use std::thread;
 
+/////////////////////////////////////////
+/// Public Structs/Enums
+/////////////////////////////////////////
 pub struct AnimationControllerConfig {
     pub target: String,
     pub size: (u8, u8),
 }
+
+#[derive(Clone)]
+pub enum AnimationControllerMessage {
+    Animate(PlaybackState),      // start playing animation
+    Stop,       // stop animation
+    Terminate,  // terminate the message loop
+}
+
 
 /// Controller for playing animations to target ArtNet devices
 /// 
@@ -18,13 +32,49 @@ pub struct AnimationControllerConfig {
 /// 
 pub struct AnimationController {
     pub size: (u8, u8),
-    artnet_controller: ArtNetController2D,
+    artnet_controller: Arc<ArtNetController2D>,
+    rx_app: Arc<Mutex<Receiver<AnimationControllerMessage>>>,
 }
 
 impl AnimationController {
-    pub fn new(config: AnimationControllerConfig) -> Self {
+    pub fn new(rx_app: Receiver<AnimationControllerMessage>, config: AnimationControllerConfig) -> Self {
         let artnet_controller = ArtNetController2D::new(config.target, config.size);
-        Self { size: config.size, artnet_controller }
+
+        Self { 
+            size: config.size, 
+            artnet_controller: Arc::new(artnet_controller),  
+            rx_app: Arc::new(Mutex::new(rx_app)) 
+        }
+    }
+
+    pub fn start(&self) {
+        let local_artnet_controller = self.artnet_controller.clone();
+        let local_receiver = self.rx_app.clone();
+
+        thread::spawn(move || {
+            let mut current_playing: PlaybackState = PlaybackState::none();
+            // Mutex guard for receiver's use while inside this thread
+            let receiver_guard = local_receiver.lock().unwrap();
+            
+            loop {
+                match receiver_guard.recv() {
+                    Ok(AnimationControllerMessage::Animate(playback)) => {
+                        AnimationController::play_from_playback(local_artnet_controller.as_ref(), playback)
+                    },
+                    // for handling messages when loop is not running
+                    Ok(AnimationControllerMessage::Stop) => {
+                        local_artnet_controller.stop_animation();
+                    },
+                    // terminate the entire controller
+                    Ok(AnimationControllerMessage::Terminate) => {
+                        break;
+                    },
+                    Err(mpsc::RecvError) => {
+                        // empty, do nothing
+                    },
+                }
+            }
+        });
     }
 
     /// Plays the given animation to the target device.
@@ -38,12 +88,12 @@ impl AnimationController {
     ///     A Result indicating the success of the operation
     /// 
     /// Plays animation according to the given PlaybackState
-    pub fn play_from_playback(&self, playback: PlaybackState) {
+    fn play_from_playback(artnet_controller: &ArtNetController2D, playback: PlaybackState) {
         // if some animation is already playing, stop it
-        if self.artnet_controller.is_playing.load(Ordering::Relaxed) {
-            self.artnet_controller.stop_animation();
+        if artnet_controller.is_playing.load(Ordering::Relaxed) {
+            artnet_controller.stop_animation();
             
-            while self.artnet_controller.is_playing.load(Ordering::Relaxed) {
+            while artnet_controller.is_playing.load(Ordering::Relaxed) {
             }
         }
 
@@ -65,7 +115,7 @@ impl AnimationController {
 
         let frame_interval = 1.0 / animation.target_fps as f64;
 
-        self.artnet_controller.send_animation(animation, frame_interval);
+        artnet_controller.send_animation(animation, frame_interval);
     }
 
     pub fn stop_animation(&self) {
