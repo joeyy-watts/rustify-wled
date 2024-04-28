@@ -32,11 +32,11 @@ impl SpotifyController {
     /// Public Functions
     /////////////////////////////////////////
 
-    pub fn new(app_channels: AppChannels) -> Self {
+    pub fn new(playback_tx: Sender<PlaybackState>, sp_msg_rx: Receiver<SpotifyControllerMessage>) -> Self {
         Self { 
             client: Arc::new(get_client()),
-            playback_tx: Arc::new(app_channels.playback_tx),
-            sp_msg_rx: Arc::new(Mutex::new(app_channels.sp_msg_rx)),
+            playback_tx: Arc::new(playback_tx),
+            sp_msg_rx: Arc::new(Mutex::new(sp_msg_rx)),
         }
     }
 

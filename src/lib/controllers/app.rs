@@ -28,21 +28,30 @@ pub struct ApplicationController {
 ///  Main backend controller for rustify-wled
 /// 
 impl ApplicationController {
-    pub fn new(target: String, size: (u8, u8), animation: AnimationController,  spotify: SpotifyController, channels: AppChannels) -> ApplicationController {
+    pub fn new(
+        target: String, 
+        size: (u8, u8), 
+        animation: AnimationController, 
+        spotify: SpotifyController,
+        playback_rx: Receiver<PlaybackState>,
+        sp_msg_tx: Sender<SpotifyControllerMessage>,
+        anim_msg_tx: Sender<AnimationControllerMessage>,
+    ) -> ApplicationController {
         let stop_flag: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
 
         ApplicationController {
             animation_controller: Arc::new(animation),
             spotify_controller: Arc::new(spotify),
             stop_flag: stop_flag.clone(),
-            playback_rx: Arc::new(Mutex::new(channels.playback_rx)),
-            sp_msg_tx: channels.sp_msg_tx,
-            anim_msg_tx: channels.anim_msg_tx,
+            playback_rx: Arc::new(Mutex::new(playback_rx)),
+            sp_msg_tx: sp_msg_tx,
+            anim_msg_tx: anim_msg_tx,
         }
     }
 
     pub fn start(&self) -> Result<Either<Redirect, String>, Status> {
         self.spotify_controller.start();
+        self.animation_controller.start();
 
         // if already authenticated, start loop (polls Spotify, plays Animation)
         // and return Ok()
@@ -112,7 +121,7 @@ impl ApplicationController {
                                 thread::sleep(Duration::from_secs_f64(10.0));
                                 if PlaybackState::eq(&new_playback, &PlaybackState::none()) {
                                     local_local_sp_msg_tx.send(SpotifyControllerMessage::Timeout).unwrap();
-                                    local_local_anim_msg_tx.send(AnimationControllerMessage::Stop).unwrap();
+                                    local_local_anim_msg_tx.send(AnimationControllerMessage::Timeout).unwrap();
                                 }
                             });
                         }

@@ -21,6 +21,7 @@ pub struct AnimationControllerConfig {
 pub enum AnimationControllerMessage {
     Animate(PlaybackState),      // start playing animation
     Stop,       // stop animation
+    Timeout,    // timeout animation
     Terminate,  // terminate the message loop
 }
 
@@ -59,11 +60,18 @@ impl AnimationController {
             loop {
                 match receiver_guard.recv() {
                     Ok(AnimationControllerMessage::Animate(playback)) => {
-                        AnimationController::play_from_playback(local_artnet_controller.as_ref(), playback)
+                        AnimationController::play_from_playback(local_artnet_controller.as_ref(), playback.clone());
+                        current_playing = playback;
                     },
                     // for handling messages when loop is not running
                     Ok(AnimationControllerMessage::Stop) => {
                         local_artnet_controller.stop_animation();
+                    },
+                    // timeout signal received
+                    Ok(AnimationControllerMessage::Timeout) => {
+                        if PlaybackState::eq(&current_playing, &PlaybackState::none()) {
+                            local_artnet_controller.stop_animation();
+                        }
                     },
                     // terminate the entire controller
                     Ok(AnimationControllerMessage::Terminate) => {
