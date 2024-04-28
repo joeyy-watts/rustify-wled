@@ -118,7 +118,7 @@ impl ApplicationController {
                             let local_local_anim_msg_tx = local_anim_msg_tx.clone();
 
                             thread::spawn(move || {
-                                thread::sleep(Duration::from_secs_f64(10.0));
+                                thread::sleep(Duration::from_secs(5 * 60));
                                 if PlaybackState::eq(&new_playback, &PlaybackState::none()) {
                                     local_local_sp_msg_tx.send(SpotifyControllerMessage::Timeout).unwrap();
                                     local_local_anim_msg_tx.send(AnimationControllerMessage::Timeout).unwrap();
