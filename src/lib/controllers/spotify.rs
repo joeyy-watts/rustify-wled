@@ -7,6 +7,7 @@ use rspotify::model::{AdditionalType, TrackId};
 use rspotify::{AuthCodeSpotify, ClientError, Token};
 use rspotify::clients::{BaseClient, OAuthClient};
 
+use crate::lib::models::app_channels::{self, AppChannels};
 use crate::lib::models::playback_state::PlaybackState;
 use crate::utils::spotify::get_client;
 
@@ -21,8 +22,8 @@ pub enum SpotifyControllerMessage {
 pub struct SpotifyController {
     // we need AuthCodeSpotify as we need private info for currently playing
     pub client: Arc<AuthCodeSpotify>,
-    tx_app: Arc<Sender<PlaybackState>>,
-    rx_app: Arc<Mutex<Receiver<SpotifyControllerMessage>>>,
+    playback_tx: Arc<Sender<PlaybackState>>,
+    sp_msg_rx: Arc<Mutex<Receiver<SpotifyControllerMessage>>>,
 }
 
 
@@ -31,21 +32,21 @@ impl SpotifyController {
     /// Public Functions
     /////////////////////////////////////////
 
-    pub fn new(tx_app: Sender<PlaybackState>, rx_app: Receiver<SpotifyControllerMessage>) -> Self {
+    pub fn new(app_channels: AppChannels) -> Self {
         Self { 
             client: Arc::new(get_client()),
-            tx_app: Arc::new(tx_app),
-            rx_app: Arc::new(Mutex::new(rx_app)), 
+            playback_tx: Arc::new(app_channels.playback_tx),
+            sp_msg_rx: Arc::new(Mutex::new(app_channels.sp_msg_rx)),
         }
     }
 
     pub fn start(&self) {
         // initialization, send None first
-        let _ = self.tx_app.send(PlaybackState::none());
+        let _ = self.playback_tx.send(PlaybackState::none());
 
         let local_client = self.client.clone();
-        let local_sender = self.tx_app.clone();
-        let local_receiver = self.rx_app.clone();
+        let local_sender = self.playback_tx.clone();
+        let local_receiver = self.sp_msg_rx.clone();
 
         thread::spawn(move || {
             let mut current_playing: PlaybackState = PlaybackState::none();
