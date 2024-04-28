@@ -1,6 +1,6 @@
-use std::sync::atomic::Ordering;
-use std::sync::mpsc::Sender;
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::Mutex;
+use std::sync::Arc;
 use std::thread::{self};
 use std::time::Duration;
 use rspotify::model::{AdditionalType, TrackId};
@@ -10,12 +10,19 @@ use rspotify::clients::{BaseClient, OAuthClient};
 use crate::lib::models::playback_state::PlaybackState;
 use crate::utils::spotify::get_client;
 
+#[derive(Clone, Copy)]
+pub enum SpotifyControllerMessage {
+    Start,      // start Spotify polling loop
+    Stop,       // stop Spotify polling loop
+    Terminate,  // terminate the message loop
+    Timeout,    // timeout signal
+}
 
 pub struct SpotifyController {
     // we need AuthCodeSpotify as we need private info for currently playing
     pub client: Arc<AuthCodeSpotify>,
-    stop_flag: Arc<AtomicBool>,
-    sender: Arc<Sender<PlaybackState>>,
+    tx_app: Arc<Sender<PlaybackState>>,
+    rx_app: Arc<Mutex<Receiver<SpotifyControllerMessage>>>,
 }
 
 
@@ -24,61 +31,84 @@ impl SpotifyController {
     /// Public Functions
     /////////////////////////////////////////
 
-    pub fn new(anim_sender: Sender<PlaybackState>) -> Self {
-        let client = Arc::new(get_client());
-
-        let stop_flag: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
-
-        // sender to send message to AnimationController
-        let sender: Arc<Sender<PlaybackState>> = Arc::new(anim_sender);
-   
-        Self { client, stop_flag, sender }
+    pub fn new(tx_app: Sender<PlaybackState>, rx_app: Receiver<SpotifyControllerMessage>) -> Self {
+        Self { 
+            client: Arc::new(get_client()),
+            tx_app: Arc::new(tx_app),
+            rx_app: Arc::new(Mutex::new(rx_app)), 
+        }
     }
 
     pub fn start(&self) {
         // initialization, send None first
-        let _ = self.sender.send(PlaybackState::none());
+        let _ = self.tx_app.send(PlaybackState::none());
 
-        // spawn thread for Spotify polling
-        self.spawn_thread();
-    }
-
-    pub fn stop(&self) {
-        self.stop_flag.store(true, Ordering::Relaxed);
-    }
-
-    /////////////////////////////////////////
-    /// Internal Functions
-    /////////////////////////////////////////
-
-    fn spawn_thread(&self) {
         let local_client = self.client.clone();
-        let local_sender = self.sender.clone();
-        let local_stop_flag = self.stop_flag.clone();
+        let local_sender = self.tx_app.clone();
+        let local_receiver = self.rx_app.clone();
 
-        
         thread::spawn(move || {
-            // keeps the current playback state
             let mut current_playing: PlaybackState = PlaybackState::none();
+            // Mutex guard for receiver's use while inside this thread
+            let receiver_guard = local_receiver.lock().unwrap();
+            
+            loop {
+                match receiver_guard.recv() {
+                    Ok(SpotifyControllerMessage::Start) => {
+                        println!("got start message");
+                        loop {
+                            match receiver_guard.try_recv() {
+                                Ok(SpotifyControllerMessage::Stop) => {
+                                    println!("Received STOP command");
+                                    break;
+                                },
+                                Ok(SpotifyControllerMessage::Terminate) => {
+                                    println!("Received TERMINATE command");
+                                    break;
+                                },
+                                Ok(SpotifyControllerMessage::Timeout) => {
+                                    if PlaybackState::eq(&current_playing, &PlaybackState::none()) {
+                                        println!("Idled for too long, TIMEDOUT");
+                                        break;
+                                    }
+                                    println!("Received TIMEOUT, but ignoring");
+                                },
+                                _ => {
+                                    // normal loop, not breaking
+                                },
+                            }
 
-            while !local_stop_flag.load(Ordering::Relaxed) {
-                let update = SpotifyController::should_update(&local_client, &current_playing);
+                            let update = SpotifyController::should_update(&local_client, &current_playing);
+                            
+                            match update {
+                                (true, new_playback) => {
+                                    current_playing = new_playback;
+                                    match local_sender.send(current_playing.clone()) {
+                                        Ok(_) => {},
+                                        Err(_) => {},
+                                    }
+                                },
+                                (false, _) => {},
+                            }
 
-                match update {
-                    (true, new_playback) => {
-                        current_playing = new_playback;
-                        match local_sender.send(current_playing.clone()) {
-                            Ok(_) => {},
-                            Err(_) => {},
+                            thread::sleep(Duration::from_secs(2));
                         }
                     },
-                    (false, _) => {},
+                    // for handling messages when loop is not running
+                    Ok(SpotifyControllerMessage::Stop) => {
+                        println!("Received STOP, but no running polling loop.")
+                    },
+                    // terminate the entire controller
+                    Ok(SpotifyControllerMessage::Terminate) => {
+                        break;
+                    },
+                    Ok(SpotifyControllerMessage::Timeout) => {
+                    },
+                    Err(mpsc::RecvError) => {
+                        // empty, do nothing
+                    },
                 }
-
-                thread::sleep(Duration::from_secs(2));
             }
-
-            local_stop_flag.store(false, Ordering::Relaxed);
         });
     }
 
