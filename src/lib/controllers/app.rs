@@ -8,36 +8,42 @@ use std::thread;
 use std::time::Duration;
 use rspotify::ClientError;
 
+use crate::lib::models::app_channels::AppChannels;
 use crate::lib::models::playback_state::PlaybackState;
 
-use super::animation::AnimationController;
-use super::spotify::SpotifyController;
+use super::animation::{AnimationController, AnimationControllerMessage};
+use super::spotify::{SpotifyController, SpotifyControllerMessage};
 
 
 pub struct ApplicationController {
     animation_controller: Arc<AnimationController>,
     spotify_controller: Arc<SpotifyController>,
     stop_flag: Arc<AtomicBool>,
-    receiver: Arc<Mutex<Receiver<PlaybackState>>>,
+    playback_rx: Arc<Mutex<Receiver<PlaybackState>>>,
+    sp_msg_tx: Sender<SpotifyControllerMessage>,
+    anim_msg_tx: Sender<AnimationControllerMessage>,
 }
 
 ///
 ///  Main backend controller for rustify-wled
 /// 
 impl ApplicationController {
-    pub fn new(target: String, size: (u8, u8)) -> ApplicationController {
-        let animation_controller = Arc::new(AnimationController::new(target, size));
-
-        let (tx, rx): (Sender<PlaybackState>, Receiver<PlaybackState>) = mpsc::channel();
-
-        let spotify_controller: Arc<SpotifyController> = Arc::new(SpotifyController::new(tx));
-
+    pub fn new(target: String, size: (u8, u8), animation: AnimationController,  spotify: SpotifyController, channels: AppChannels) -> ApplicationController {
         let stop_flag: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
 
-        Self { animation_controller, spotify_controller, stop_flag, receiver: Arc::new(Mutex::new(rx)) }
+        ApplicationController {
+            animation_controller: Arc::new(animation),
+            spotify_controller: Arc::new(spotify),
+            stop_flag: stop_flag.clone(),
+            playback_rx: Arc::new(Mutex::new(channels.playback_rx)),
+            sp_msg_tx: channels.sp_msg_tx,
+            anim_msg_tx: channels.anim_msg_tx,
+        }
     }
 
     pub fn start(&self) -> Result<Either<Redirect, String>, Status> {
+        self.spotify_controller.start();
+
         // if already authenticated, start loop (polls Spotify, plays Animation)
         // and return Ok()
         // if not, return redirect to Spotify auth (this will be called again after auth)
@@ -45,7 +51,7 @@ impl ApplicationController {
         // if token does not exist, redirect to Spotify auth
         match self.spotify_controller.get_token() {
             Some(token) if !token.is_expired() => {
-                self.spotify_controller.start();
+                self.sp_msg_tx.send(SpotifyControllerMessage::Start).unwrap();
                 self.start_loop();
 
                 Ok(Either::Right("start!".to_string()))
@@ -74,7 +80,7 @@ impl ApplicationController {
     pub fn stop(&self) {
         self.stop_flag.store(true, Ordering::Relaxed);
         self.animation_controller.stop_animation();
-        self.spotify_controller.stop();
+        self.sp_msg_tx.send(SpotifyControllerMessage::Terminate).unwrap();
     }
 
     // ///
@@ -86,8 +92,9 @@ impl ApplicationController {
 
     fn start_loop(&self) {
         let local_stop_flag = self.stop_flag.clone();
-        let local_receiver: Arc<Mutex<Receiver<PlaybackState>>> = self.receiver.clone();
-        let local_animation_controller = self.animation_controller.clone();
+        let local_receiver: Arc<Mutex<Receiver<PlaybackState>>> = self.playback_rx.clone();
+        let local_anim_msg_tx = self.anim_msg_tx.clone();
+        let local_sp_msg_tx = self.sp_msg_tx.clone();
 
         thread::spawn(move || {
             while !local_stop_flag.load(Ordering::Relaxed) {
@@ -95,7 +102,20 @@ impl ApplicationController {
                 match local_receiver.lock().unwrap().try_recv() {
                     // new playback state found, play it
                     Ok(new_playback) => {
-                        local_animation_controller.play_from_playback(new_playback);
+                        local_anim_msg_tx.send(AnimationControllerMessage::Animate(new_playback.clone())).unwrap();
+
+                        if PlaybackState::eq(&new_playback, &PlaybackState::none()) {
+                            let local_local_sp_msg_tx = local_sp_msg_tx.clone();
+                            let local_local_anim_msg_tx = local_anim_msg_tx.clone();
+
+                            thread::spawn(move || {
+                                thread::sleep(Duration::from_secs_f64(10.0));
+                                if PlaybackState::eq(&new_playback, &PlaybackState::none()) {
+                                    local_local_sp_msg_tx.send(SpotifyControllerMessage::Timeout).unwrap();
+                                    local_local_anim_msg_tx.send(AnimationControllerMessage::Stop).unwrap();
+                                }
+                            });
+                        }
                     }
                     // empty, move on
                     Err(mpsc::TryRecvError::Empty) => {
