@@ -6,6 +6,11 @@ use crate::lib::models::playback_state::PlaybackState;
 use crate::utils::image::get_image_pixels;
 use std::sync::atomic::Ordering;
 
+pub struct AnimationControllerConfig {
+    pub target: String,
+    pub size: (u8, u8),
+}
+
 /// Controller for playing animations to target ArtNet devices
 /// 
 /// `artnet_controller` - the controller for the target ArtNet device
@@ -17,9 +22,9 @@ pub struct AnimationController {
 }
 
 impl AnimationController {
-    pub fn new(target: String, size: (u8, u8)) -> Self {
-        let artnet_controller = ArtNetController2D::new(target, size);
-        Self { size, artnet_controller }
+    pub fn new(config: AnimationControllerConfig) -> Self {
+        let artnet_controller = ArtNetController2D::new(config.target, config.size);
+        Self { size: config.size, artnet_controller }
     }
 
     /// Plays the given animation to the target device.
