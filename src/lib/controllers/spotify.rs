@@ -175,4 +175,8 @@ impl SpotifyController {
     pub fn get_access_token(&self, code: &str) -> Result<(), ClientError> {
         self.client.request_token(code)
     }
+
+    pub fn refresh_token(&self) -> Result<(), ClientError> {
+        self.client.refresh_token()
+    }
 }

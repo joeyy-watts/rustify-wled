@@ -67,7 +67,7 @@ impl ApplicationController {
             },
             Some(token) if token.is_expired() => {
                 // refresh token first
-                let _ = self.spotify_controller.get_access_token(token.refresh_token.unwrap().as_ref());
+                let _ = self.spotify_controller.refresh_token();
                 
                 self.spotify_controller.start();
                 self.start_loop();
