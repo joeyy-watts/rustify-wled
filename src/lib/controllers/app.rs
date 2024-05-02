@@ -69,7 +69,7 @@ impl ApplicationController {
                 // refresh token first
                 let _ = self.spotify_controller.refresh_token();
                 
-                self.spotify_controller.start();
+                self.sp_msg_tx.send(SpotifyControllerMessage::Start).unwrap();
                 self.start_loop();
 
                 Ok(Either::Right("started with refreshed token!".to_string()))
