@@ -104,33 +104,45 @@ impl AnimationController {
     /// 
     /// Plays animation according to the given PlaybackState
     fn play_from_playback(artnet_controller: &ArtNetController2D, playback: PlaybackState) {
+        let image_thread = thread::spawn(move || {
+            let image = get_image_pixels(playback.cover_url.unwrap().as_ref(), &32, &32).unwrap();
+            image
+        });
+
+        let effect_thread = thread::spawn(move || {
+            let effect: RenderedEffect = match (playback.is_playing, playback.features) {
+                (true, Some(features)) => {
+                    PlaybackEffects::play_features(30, features)
+                },
+                (true, None) => {
+                    PlaybackEffects::play(30)
+                },
+                (false, _) => {
+                    PlaybackEffects::pause(30)
+                }
+            };
+            effect
+        });
+
+        let animation_thread = thread::spawn(move || {
+            Animation::new(
+                image_thread.join().unwrap(),
+                30,
+                effect_thread.join().unwrap()
+            )
+        });
+
+        let frame_interval = 1.0 / 30f64;
+
         // if some animation is already playing, stop it
         if artnet_controller.is_playing.load(Ordering::Relaxed) {
             artnet_controller.stop_animation();
-            
-            while artnet_controller.is_playing.load(Ordering::Relaxed) {
-            }
+
+            // wait for animation to stop before sending new
+            while artnet_controller.is_playing.load(Ordering::Relaxed) {}
         }
 
-        let image = get_image_pixels(playback.cover_url.unwrap().as_ref(), &32, &32).unwrap();
-                
-        let effect: RenderedEffect = match (playback.is_playing, playback.features) {
-            (true, Some(features)) => {
-                PlaybackEffects::play_features(30, features)
-            },
-            (true, None) => {
-                PlaybackEffects::play(30)
-            },
-            (false, _) => {
-                PlaybackEffects::pause(30)
-            }
-        };
-
-        let animation = Animation::new(image, 30, effect);
-
-        let frame_interval = 1.0 / animation.target_fps as f64;
-
-        artnet_controller.send_animation(animation, frame_interval);
+        artnet_controller.send_animation(animation_thread.join().unwrap(), frame_interval);
     }
 
     pub fn stop_animation(&self) {
