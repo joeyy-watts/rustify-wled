@@ -52,12 +52,7 @@ fn callback(controller: &State<ApplicationController>, code: String) -> StartRes
 fn rocket() -> _ {
     let channels: AppChannels = AppChannels::setup();
 
-    let anim_config: AnimationControllerConfig = AnimationControllerConfig {
-        target: resolve_ip("wled-frame.local").unwrap(),
-        size: (32, 32),
-    };
-
-    let animation_controller: AnimationController = AnimationController::new(channels.anim_msg_rx, anim_config);
+    let animation_controller: AnimationController = AnimationController::new(channels.anim_msg_rx);
     let spotify_controller: SpotifyController = SpotifyController::new(channels.playback_tx, channels.sp_msg_rx);
     let app_controller: ApplicationController = ApplicationController::new(
         animation_controller,

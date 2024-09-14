@@ -1,3 +1,4 @@
 /target
 /.vscode
+/config
 .spotify_token_cache.json

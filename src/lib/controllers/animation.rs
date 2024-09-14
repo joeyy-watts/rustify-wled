@@ -8,6 +8,8 @@ use std::sync::atomic::Ordering;
 use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use config::Config;
+use crate::utils::network::resolve_ip;
 
 /////////////////////////////////////////
 /// Public Structs/Enums
@@ -38,11 +40,24 @@ pub struct AnimationController {
 }
 
 impl AnimationController {
-    pub fn new(rx_app: Receiver<AnimationControllerMessage>, config: AnimationControllerConfig) -> Self {
-        let artnet_controller = ArtNetController2D::new(config.target, config.size);
+    pub fn new(rx_app: Receiver<AnimationControllerMessage>) -> Self {
+        let config = Config::builder()
+            .add_source(config::File::with_name("config/config.toml").required(true))
+            .build()
+            .unwrap();
+
+        let size = (
+            config.get::<u8>("target.size_width").unwrap(),
+            config.get::<u8>("target.size_height").unwrap()
+        );
+
+        let artnet_controller = ArtNetController2D::new(
+            resolve_ip(config.get::<String>("target.host").unwrap().as_str()).unwrap(),
+            size
+        );
 
         Self { 
-            size: config.size, 
+            size: size,
             artnet_controller: Arc::new(artnet_controller),  
             rx_app: Arc::new(Mutex::new(rx_app)) 
         }
