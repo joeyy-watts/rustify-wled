@@ -9,7 +9,7 @@ use rustify_wled_lib::lib::controllers::animation::{AnimationController, Animati
 use rustify_wled_lib::lib::controllers::app::ApplicationController;
 use rustify_wled_lib::lib::controllers::spotify::SpotifyController;
 use rustify_wled_lib::lib::models::app_channels::AppChannels;
-
+use rustify_wled_lib::utils::network::resolve_ip;
 
 ///
 /// Responses for starting the application,
@@ -53,15 +53,13 @@ fn rocket() -> _ {
     let channels: AppChannels = AppChannels::setup();
 
     let anim_config: AnimationControllerConfig = AnimationControllerConfig {
-        target: String::from("192.168.31.88"),
+        target: resolve_ip("wled-frame.local").unwrap(),
         size: (32, 32),
     };
 
     let animation_controller: AnimationController = AnimationController::new(channels.anim_msg_rx, anim_config);
     let spotify_controller: SpotifyController = SpotifyController::new(channels.playback_tx, channels.sp_msg_rx);
     let app_controller: ApplicationController = ApplicationController::new(
-        String::from("192.168.31.88"),
-        (32, 32),
         animation_controller,
         spotify_controller,
         channels.playback_rx,

@@ -29,8 +29,6 @@ pub struct ApplicationController {
 /// 
 impl ApplicationController {
     pub fn new(
-        target: String, 
-        size: (u8, u8), 
         animation: AnimationController, 
         spotify: SpotifyController,
         playback_rx: Receiver<PlaybackState>,
