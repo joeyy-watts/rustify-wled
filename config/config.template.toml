@@ -1,0 +1,6 @@
+title = "RustifyWLED Configuration"
+
+[target]
+host = ""
+size_width = 32
+size_height = 32

@@ -1,4 +1,4 @@
 /target
 /.vscode
-/config
+/config/config.toml
 .spotify_token_cache.json
