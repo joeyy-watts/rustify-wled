@@ -16,7 +16,7 @@ pub fn get_image_sized(url: &str, width: &u32, height: &u32) -> Result<DynamicIm
 }
 
 pub fn get_image_raw(url: &str) -> Result<image::DynamicImage, Box<dyn Error>> {
-    let cache_path = format!("{}.png", get_cache_path(url, true));
+    let cache_path = get_cache_path(url, true);
 
     if Path::new(&cache_path).exists() {
         let image = image::open(cache_path)?;
@@ -45,6 +45,6 @@ fn get_cache_path(url: &str, with_file: bool) -> String {
     if with_file {
         format!("/tmp/{}/{:x}.png", env!("CARGO_PKG_NAME"), cache_key)
     } else {
-        format!("/tmp/{}/{:x}", env!("CARGO_PKG_NAME"), cache_key)
+        format!("/tmp/{}", env!("CARGO_PKG_NAME"))
     }
 }
