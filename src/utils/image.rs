@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::path::Path;
 use image::{DynamicImage, ImageFormat};
-use std::fs;
+use std::{fs, thread};
 
 pub fn get_image_pixels(url: &str, width: &u32, height: &u32) -> Result<Vec<u8>, Box<dyn Error>> {
     let img = get_image_sized(url, width, height)?;
@@ -27,8 +27,13 @@ pub fn get_image_raw(url: &str) -> Result<image::DynamicImage, Box<dyn Error>> {
         let img = image::load_from_memory(&content)?;
 
         // TODO: add cache rotation
-        fs::create_dir_all(get_cache_path(url, false))?;
-        img.save_with_format(Path::new(&cache_path), ImageFormat::Png)?;
+        let image_for_cache = img.clone();
+        let new_cache_path = get_cache_path(url, false);
+        thread::spawn(move || {
+            fs::create_dir_all(new_cache_path).unwrap();
+            image_for_cache.save_with_format(Path::new(&cache_path), ImageFormat::Png).unwrap();
+        });
+
 
         Ok(img)
     }
