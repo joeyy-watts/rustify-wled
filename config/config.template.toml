@@ -6,6 +6,9 @@ callback_url = "my-rustify-wled-device.local"
 #client_secret = ""
 #idle_image_url = ""
 
+[spotify]
+polling_seconds = 2
+
 [target]
 host = "my-wled-device.local"
 size = [32, 32]

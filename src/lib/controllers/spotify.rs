@@ -9,6 +9,7 @@ use rspotify::clients::{BaseClient, OAuthClient};
 
 use crate::lib::models::app_channels::{self, AppChannels};
 use crate::lib::models::playback_state::PlaybackState;
+use crate::settings::SETTINGS;
 use crate::utils::spotify::get_client;
 
 #[derive(Clone, Copy)]
@@ -92,7 +93,7 @@ impl SpotifyController {
                                 (false, _) => {},
                             }
 
-                            thread::sleep(Duration::from_secs(2));
+                            thread::sleep(Duration::from_secs(SETTINGS.read().unwrap().spotify.polling_seconds));
                         }
                     },
                     // for handling messages when loop is not running

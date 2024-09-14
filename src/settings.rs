@@ -13,6 +13,11 @@ pub struct App {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct Spotify {
+    pub(crate) polling_seconds: u64,
+}
+
+#[derive(Debug, Deserialize)]
 #[allow(unused)]
 pub struct Target {
     pub(crate) host: String,
@@ -23,6 +28,7 @@ pub struct Target {
 #[allow(unused)]
 pub struct Settings {
     pub(crate) target: Target,
+    pub(crate) spotify: Spotify,
     pub(crate) app: App,
 }
 
