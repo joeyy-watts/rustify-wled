@@ -4,7 +4,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{cmp, thread};
 use artnet_protocol::*;
-use crate::lib::artnet::anim::frame::AnimationFrame;
+
+use crate::lib::models::animation::Animation;
+use crate::lib::models::frame::AnimationFrame;
 
 
 /// Controller module for 2D (matrix-based) ArtNet devices
@@ -36,7 +38,7 @@ impl ArtNetController2D {
         Self { inner, is_playing, stop_flag }
     }
 
-    pub fn send_frames(&self, frames: Vec<AnimationFrame>, frame_interval: f64) {
+    pub fn send_animation(&self, animation: Animation, frame_interval: f64) {
         self.is_playing.store(true, Ordering::Relaxed);
 
         let local_inner = self.inner.clone();
@@ -46,13 +48,26 @@ impl ArtNetController2D {
         thread::spawn(move || {
             let mut sequence_counter: u8 = 0;
 
+            if !animation.frames_in.is_none() {
+                for frame in animation.frames_in.unwrap().clone() {
+                    local_inner.send_frame(frame, sequence_counter, frame_interval);
+                }
+            }
+
             while !local_stop_flag.load(Ordering::Relaxed) {
-                for frame in frames.clone() {
-                    local_inner.send_frame(frame, sequence_counter);
+                for frame in animation.frames_loop.clone() {
+                    local_inner.send_frame(frame, sequence_counter, frame_interval);
                     
-                    sequence_counter = sequence_counter.wrapping_add(1);
-                    
-                    thread::sleep(Duration::from_secs_f64(frame_interval));
+                    // to allow for termination mid-animation
+                    if local_stop_flag.load(Ordering::Relaxed) {
+                        break;
+                    }
+                }
+            }
+
+            if !animation.frames_out.is_none() {
+                for frame in animation.frames_out.unwrap().clone() {
+                    local_inner.send_frame(frame, sequence_counter, frame_interval);
                 }
             }
 
@@ -82,7 +97,7 @@ impl ArtNetController2DInner {
     /// 
     /// `frame` - the frame to be sent
     /// 
-    fn send_frame(&self, frame: AnimationFrame, sequence_counter: u8) {
+    fn send_frame(&self, frame: AnimationFrame, mut sequence_counter: u8, frame_interval: f64) {
         // or channels per universe
         static CHANNELS_PER_SHARD: u16 = 510;
         static CHANNELS_PER_PIXEL: u16 = 3;
@@ -118,6 +133,7 @@ impl ArtNetController2DInner {
             self.socket.send_to(&command_byte, &addr).unwrap();
         }
 
-
+        sequence_counter = sequence_counter.wrapping_add(1);
+        thread::sleep(Duration::from_secs_f64(frame_interval));
     }
 }

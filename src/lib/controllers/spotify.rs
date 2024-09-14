@@ -1,204 +1,182 @@
-use std::error::Error;
-use std::sync::atomic::Ordering;
-use std::sync::mpsc::Sender;
-use std::sync::{atomic::AtomicBool, Arc};
-use std::thread;
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::Mutex;
+use std::sync::Arc;
+use std::thread::{self};
 use std::time::Duration;
-use std::io::{self, Write};
-
-use rspotify::model::{AdditionalType, AudioFeatures, CurrentPlaybackContext, Id, TrackId, PlayableItem};
-use rspotify::{scopes, AuthCodeSpotify, ClientError, Config, Credentials, OAuth, Token};
+use rspotify::model::{AdditionalType, TrackId};
+use rspotify::{AuthCodeSpotify, ClientError, Token};
 use rspotify::clients::{BaseClient, OAuthClient};
 
+use crate::lib::models::app_channels::{self, AppChannels};
+use crate::lib::models::playback_state::PlaybackState;
+use crate::utils::spotify::get_client;
+
+#[derive(Clone, Copy)]
+pub enum SpotifyControllerMessage {
+    Start,      // start Spotify polling loop
+    Stop,       // stop Spotify polling loop
+    Terminate,  // terminate the message loop
+    Timeout,    // timeout signal
+}
 
 pub struct SpotifyController {
     // we need AuthCodeSpotify as we need private info for currently playing
     pub client: Arc<AuthCodeSpotify>,
-    stop_flag: Arc<AtomicBool>,
-    sender: Arc<Sender<PlaybackState>>,
-    current_playing: Arc<PlaybackState>,
+    playback_tx: Arc<Sender<PlaybackState>>,
+    sp_msg_rx: Arc<Mutex<Receiver<SpotifyControllerMessage>>>,
 }
 
-/// State of the current playback, to be tracked
-#[derive(Debug, Clone)]
-pub struct PlaybackState {
-    pub is_playing: bool,
-    pub track_name: Option<String>,
-    pub track_id: Option<String>,
-    pub cover_url: Option<String>,
-    pub features: Option<AudioFeatures>,
-}
-
-impl PartialEq for PlaybackState {
-    fn eq(&self, other: &Self) -> bool {
-        self.is_playing == other.is_playing &&
-        self.track_id == other.track_id
-    }
-}
-
-impl PlaybackState {
-    /// Creates PlaybackState from a CurrentPlaybackContext
-    /// 
-    /// Does not contain AudioFeatures.
-    pub fn from_playback_context(context: CurrentPlaybackContext) -> Self {
-        match context.item {
-            Some(PlayableItem::Track(track)) => {
-                Self {
-                    is_playing: context.is_playing,
-                    track_name: Some(String::from(track.name)),
-                    track_id: Some(String::from(track.id.unwrap().id())),
-                    cover_url: Some(track.album.images.first().unwrap().url.clone()),
-                    features: None,
-                    }
-            },
-            Some(PlayableItem::Episode(_)) => PlaybackState::none(),
-            None => PlaybackState::none(),
-        }
-    }
-
-    pub fn add_features(&mut self, features: Option<AudioFeatures>) {
-        self.features = features;
-    }
-
-    pub fn none() -> Self {
-        Self {
-                is_playing: false,
-                track_name: None,
-                track_id: None,
-                cover_url: Some(String::from("https://play-lh.googleusercontent.com/cShys-AmJ93dB0SV8kE6Fl5eSaf4-qMMZdwEDKI5VEmKAXfzOqbiaeAsqqrEBCTdIEs")),
-                features: None,
-            }
-    }
-}
 
 impl SpotifyController {
-    pub fn new(sender: Sender<PlaybackState>) -> Self {
-        let config = Config {
-            token_cached: true,
-            ..Default::default()
-        };
+    /////////////////////////////////////////
+    /// Public Functions
+    /////////////////////////////////////////
 
-        let credentials: Credentials = match Credentials::from_env() {
-            Some(_) => {
-                Credentials::from_env().unwrap()
-            },
-            None => {
-                SpotifyController::id_secret_prompt().unwrap()
-            }
-        };
-
-        let oauth: OAuth = OAuth {
-            redirect_uri: "http://localhost:8000/callback".to_string(),
-            scopes: scopes!(
-                "user-read-playback-state",
-                "user-read-currently-playing"
-            ),
-            ..Default::default()
-          
-        };
-
-        let client = Arc::new(AuthCodeSpotify::with_config(credentials, oauth, config));
-
-        let stop_flag: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
-
-        let sender: Arc<Sender<PlaybackState>> = Arc::new(sender);
-
-        let current_playing = Arc::new(PlaybackState::none());
-   
-        Self { client, stop_flag, sender, current_playing }
-    }
-
-    fn id_secret_prompt() -> Option<Credentials> {
-        println!("RSPOTIFY_CLIENT_ID/RSPOTIFY_CLIENT_SECRET not found in environment");
-        print!("Enter RSPOTIFY_CLIENT_ID: ");
-        let _ = io::stdout().flush();
-        let mut client_id = String::new();
-        io::stdin().read_line(&mut client_id).expect("Unable to read RSPOTIFY_CLIENT_ID");
-
-        print!("Enter RSPOTIFY_CLIENT_SECRET: ");
-        let mut client_secret = String::new();
-        let _ = io::stdout().flush();
-        io::stdin().read_line(&mut client_secret).expect("Unable to read RSPOTIFY_CLIENT_SECRET");
-
-        if client_id.len() == 0 || client_secret.len() == 0 {
-            panic!("RSPOTIFY_CLIENT_ID and RSPOTIFY_CLIENT_SECRET cannot be empty!")
+    pub fn new(playback_tx: Sender<PlaybackState>, sp_msg_rx: Receiver<SpotifyControllerMessage>) -> Self {
+        Self { 
+            client: Arc::new(get_client()),
+            playback_tx: Arc::new(playback_tx),
+            sp_msg_rx: Arc::new(Mutex::new(sp_msg_rx)),
         }
-
-        Some(Credentials::new(client_id.trim().as_ref(), client_secret.trim().as_ref()))
     }
 
-    pub fn get_token(&self) -> Option<Token> {
-         self.client.get_token().lock().unwrap().clone()
-    }
-
-    pub fn get_authorize_url(&self) -> String {
-        self.client.get_authorize_url(false).unwrap()
-    }
-
-    pub fn get_access_token(&self, response_code: &str) -> Result<(), ClientError> {
-        self.client.request_token(response_code)
-    }
-
-    pub fn start_listening(&self) {
-        // initialize loop, send None first
-        self.sender.send(PlaybackState::none());
+    pub fn start(&self) {
+        // initialization, send None first
+        let _ = self.playback_tx.send(PlaybackState::none());
 
         let local_client = self.client.clone();
-        let mut local_current_playing = self.current_playing.clone();
-        let local_sender = self.sender.clone();
-        let local_stop_flag = self.stop_flag.clone();
+        let local_sender = self.playback_tx.clone();
+        let local_receiver = self.sp_msg_rx.clone();
 
         thread::spawn(move || {
-            while !local_stop_flag.load(Ordering::Relaxed) {
-                let new_playing = local_client.current_playback(
-                    None, 
-                    None::<Vec<&AdditionalType>>
-                ).unwrap(); 
-                
-                let mut new_playback = match new_playing {
-                    Some(context) => {
-                        PlaybackState::from_playback_context(context)
+            let mut current_playing: PlaybackState = PlaybackState::none();
+            // Mutex guard for receiver's use while inside this thread
+            let receiver_guard = local_receiver.lock().unwrap();
+            
+            loop {
+                match receiver_guard.recv() {
+                    Ok(SpotifyControllerMessage::Start) => {
+                        println!("got start message");
+                        loop {
+                            match receiver_guard.try_recv() {
+                                Ok(SpotifyControllerMessage::Stop) => {
+                                    println!("Received STOP command");
+                                    break;
+                                },
+                                Ok(SpotifyControllerMessage::Terminate) => {
+                                    println!("Received TERMINATE command");
+                                    break;
+                                },
+                                Ok(SpotifyControllerMessage::Timeout) => {
+                                    if PlaybackState::eq(&current_playing, &PlaybackState::none()) {
+                                        println!("Idled for too long, TIMEDOUT");
+                                        break;
+                                    }
+                                    println!("Received TIMEOUT, but ignoring");
+                                },
+                                _ => {
+                                    // normal loop, not breaking
+                                },
+                            }
+
+                            let update = SpotifyController::should_update(&local_client, &current_playing);
+                            
+                            match update {
+                                (true, new_playback) => {
+                                    current_playing = new_playback;
+                                    match local_sender.send(current_playing.clone()) {
+                                        Ok(_) => {},
+                                        Err(_) => {},
+                                    }
+                                },
+                                (false, _) => {},
+                            }
+
+                            thread::sleep(Duration::from_secs(2));
+                        }
                     },
-                    None => {
-                        PlaybackState::none()
-                    }
-                };
-
-                // if playback state has changed: get audio features, update self and send it
-                if !PlaybackState::eq(&new_playback, &local_current_playing) {
-                    let track_id: Option<TrackId> = match new_playback.track_id.as_ref() {
-                        Some(id) => Some(TrackId::from_id(id).unwrap()),
-                        None => None,
-                    };
-                    
-                    match track_id {
-                        Some(id) => {
-                            new_playback.add_features(
-                                Some(local_client.track_features(id).unwrap())
-                            );
-                        },
-                        None => {},
-                    }
-
-                    // clone new playback state into 2 variables, one to self, one to sender
-                    // a bit messy but i can't figure it out for the life of me
-                    local_current_playing = Arc::new(new_playback.clone());
-
-                    match local_sender.send(new_playback) {
-                        // TODO: add error handling
-                        Ok(_) => {},
-                        Err(_) => {},
-                    }
+                    // for handling messages when loop is not running
+                    Ok(SpotifyControllerMessage::Stop) => {
+                        println!("Received STOP, but no running polling loop.")
+                    },
+                    // terminate the entire controller
+                    Ok(SpotifyControllerMessage::Terminate) => {
+                        break;
+                    },
+                    Ok(SpotifyControllerMessage::Timeout) => {
+                    },
+                    Err(mpsc::RecvError) => {
+                        // empty, do nothing
+                    },
                 }
-                
-                thread::sleep(Duration::from_secs(2));
             }
-
-            local_stop_flag.store(false, Ordering::Relaxed);
         });
     }
 
-    pub fn stop_listening(&self) {
-        self.stop_flag.store(true, Ordering::Relaxed);
+
+    ///
+    /// Determines whether the controller should update animation.
+    /// 
+    /// Returns:
+    ///    - bool: whether the controller should update animation
+    ///    - PlaybackState: the current playback state
+    fn should_update(client: &AuthCodeSpotify, current_playing: &PlaybackState) -> (bool, PlaybackState) {
+        // current playback context from rspotify client
+        let context = client.current_playback(
+            None, 
+            None::<Vec<&AdditionalType>>
+        ).unwrap();
+
+        // convert context to PlaybackState
+        let mut new_playback = match context {
+            Some(context) => {
+                PlaybackState::from_playback_context(context)
+            },
+            None => {
+                PlaybackState::none()
+            }
+        };
+
+        // check if state has changed
+        if !PlaybackState::eq(&new_playback, &current_playing) {
+            // if state has changed, get audio features and return `true`
+            let track_id: Option<TrackId> = match new_playback.track_id.as_ref() {
+                Some(id) => Some(TrackId::from_id(id).unwrap()),
+                None => None,
+            };
+            
+            match track_id {
+                Some(id) => {
+                    new_playback.add_features(
+                        Some(client.track_features(id).unwrap())
+                    );
+                },
+                None => {},
+            }
+
+            (true, new_playback)
+        } else {
+            (false, new_playback)
+        }
+    }
+
+    /////////////////////////////////////////
+    /// rspotify Client-related Functions
+    /////////////////////////////////////////
+    
+    pub fn get_token(&self) -> Option<Token> {
+        self.client.get_token().lock().unwrap().clone()
+    }
+    
+    pub fn get_authorize_url(&self) -> String {
+        self.client.get_authorize_url(false).unwrap()
+    }
+    
+    pub fn get_access_token(&self, code: &str) -> Result<(), ClientError> {
+        self.client.request_token(code)
+    }
+
+    pub fn refresh_token(&self) -> Result<(), ClientError> {
+        self.client.refresh_token()
     }
 }

@@ -5,65 +5,89 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 use rspotify::ClientError;
 
-use crate::lib::artnet::anim::animation::Animation;
-use crate::lib::artnet::anim::effects::effect::RenderedEffect;
-use crate::lib::artnet::anim::effects::playback::PlaybackEffects;
-use crate::utils::image::get_image_pixels;
+use crate::lib::models::app_channels::AppChannels;
+use crate::lib::models::playback_state::PlaybackState;
 
-use super::animation::AnimationController;
-use super::spotify::{PlaybackState, SpotifyController};
+use super::animation::{AnimationController, AnimationControllerMessage};
+use super::spotify::{SpotifyController, SpotifyControllerMessage};
 
 
 pub struct ApplicationController {
     animation_controller: Arc<AnimationController>,
     spotify_controller: Arc<SpotifyController>,
     stop_flag: Arc<AtomicBool>,
-    receiver: Arc<Mutex<Receiver<PlaybackState>>>,
+    playback_rx: Arc<Mutex<Receiver<PlaybackState>>>,
+    sp_msg_tx: Sender<SpotifyControllerMessage>,
+    anim_msg_tx: Sender<AnimationControllerMessage>,
 }
 
 ///
 ///  Main backend controller for rustify-wled
 /// 
 impl ApplicationController {
-    pub fn new(target: String, size: (u8, u8)) -> ApplicationController {
-        let animation_controller = Arc::new(AnimationController::new(target, size));
-
-        let (tx, rx): (Sender<PlaybackState>, Receiver<PlaybackState>) = mpsc::channel();
-
-        let spotify_controller: Arc<SpotifyController> = Arc::new(SpotifyController::new(tx));
-
+    pub fn new(
+        animation: AnimationController, 
+        spotify: SpotifyController,
+        playback_rx: Receiver<PlaybackState>,
+        sp_msg_tx: Sender<SpotifyControllerMessage>,
+        anim_msg_tx: Sender<AnimationControllerMessage>,
+    ) -> ApplicationController {
         let stop_flag: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
 
-        Self { animation_controller, spotify_controller, stop_flag, receiver: Arc::new(Mutex::new(rx)) }
+        ApplicationController {
+            animation_controller: Arc::new(animation),
+            spotify_controller: Arc::new(spotify),
+            stop_flag: stop_flag.clone(),
+            playback_rx: Arc::new(Mutex::new(playback_rx)),
+            sp_msg_tx: sp_msg_tx,
+            anim_msg_tx: anim_msg_tx,
+        }
     }
 
     pub fn start(&self) -> Result<Either<Redirect, String>, Status> {
+        self.spotify_controller.start();
+        self.animation_controller.start();
+
         // if already authenticated, start loop (polls Spotify, plays Animation)
         // and return Ok()
         // if not, return redirect to Spotify auth (this will be called again after auth)
 
         // if token does not exist, redirect to Spotify auth
-        // TODO: if token exists but is expired, refresh token
-        if self.spotify_controller.get_token().is_none() {
-            let auth_url = self.spotify_controller.get_authorize_url();
+        match self.spotify_controller.get_token() {
+            Some(token) if !token.is_expired() => {
+                self.sp_msg_tx.send(SpotifyControllerMessage::Start).unwrap();
+                self.start_loop();
 
-            // redirect to Spotify auth
-            Ok(Either::Left(Redirect::to(auth_url)))
-        } else {
-            // start listening loop
-            self.spotify_controller.start_listening();
-            self.start_loop();
+                Ok(Either::Right("start!".to_string()))
+            },
+            Some(token) if token.is_expired() => {
+                // refresh token first
+                let _ = self.spotify_controller.refresh_token();
+                
+                self.sp_msg_tx.send(SpotifyControllerMessage::Start).unwrap();
+                self.start_loop();
 
-            Ok(Either::Right("start!".to_string()))
+                Ok(Either::Right("started with refreshed token!".to_string()))
+            },
+            Some(_) => {
+                Ok(Either::Right("shouldn't be here m8".to_string()))
+            },
+            None => {
+                let auth_url = self.spotify_controller.get_authorize_url();
+
+                // redirect to Spotify auth
+                Ok(Either::Left(Redirect::to(auth_url)))
+            }
         }
     }
 
     pub fn stop(&self) {
         self.stop_flag.store(true, Ordering::Relaxed);
         self.animation_controller.stop_animation();
-        self.spotify_controller.stop_listening();
+        self.sp_msg_tx.send(SpotifyControllerMessage::Terminate).unwrap();
     }
 
     // ///
@@ -75,31 +99,43 @@ impl ApplicationController {
 
     fn start_loop(&self) {
         let local_stop_flag = self.stop_flag.clone();
-        let local_receiver: Arc<Mutex<Receiver<PlaybackState>>> = self.receiver.clone();
-        let local_animation_controller = self.animation_controller.clone();
+        let local_receiver: Arc<Mutex<Receiver<PlaybackState>>> = self.playback_rx.clone();
+        let local_anim_msg_tx = self.anim_msg_tx.clone();
+        let local_sp_msg_tx = self.sp_msg_tx.clone();
 
         thread::spawn(move || {
             while !local_stop_flag.load(Ordering::Relaxed) {
-                // BLOCKING: waits for new PlaybackState to be sent from SpotifyController
-                let new_playback = local_receiver.lock().unwrap().recv().unwrap();
+                // asynchronously try to get data from sender
+                match local_receiver.lock().unwrap().try_recv() {
+                    // new playback state found, play it
+                    Ok(new_playback) => {
+                        local_anim_msg_tx.send(AnimationControllerMessage::Animate(new_playback.clone())).unwrap();
 
-                // play new animation
-                let image = get_image_pixels(new_playback.cover_url.unwrap().as_ref(), &32, &32).unwrap();
-                
-                let effect: RenderedEffect = match (new_playback.is_playing, new_playback.features) {
-                    (true, Some(features)) => {
-                        PlaybackEffects::play_features(30, features)
-                    },
-                    (true, None) => {
-                        PlaybackEffects::play(30)
-                    },
-                    (false, _) => {
-                        PlaybackEffects::pause(30)
+                        if PlaybackState::eq(&new_playback, &PlaybackState::none()) {
+                            let local_local_sp_msg_tx = local_sp_msg_tx.clone();
+                            let local_local_anim_msg_tx = local_anim_msg_tx.clone();
+
+                            thread::spawn(move || {
+                                thread::sleep(Duration::from_secs(5 * 60));
+                                if PlaybackState::eq(&new_playback, &PlaybackState::none()) {
+                                    local_local_sp_msg_tx.send(SpotifyControllerMessage::Timeout).unwrap();
+                                    local_local_anim_msg_tx.send(AnimationControllerMessage::Timeout).unwrap();
+                                }
+                            });
+                        }
                     }
-                };
+                    // empty, move on
+                    Err(mpsc::TryRecvError::Empty) => {
+                        // Channel is empty, continue with the next iteration
+                    }
+                    // channel disconnected, stop loop
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        println!("SpotifyController disconnected. Stopping application loop.");
+                        break;
+                    }
+                }
 
-                let animation = Animation::new(image, 30, effect);
-                local_animation_controller.play_animation(animation);
+                thread::sleep(Duration::from_secs_f64(0.5));
             }
 
             local_stop_flag.store(false, Ordering::Relaxed);
