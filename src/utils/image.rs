@@ -3,8 +3,12 @@ use std::path::Path;
 use image::{DynamicImage, ImageFormat};
 use std::{fs, thread};
 
-pub fn get_image_pixels(url: &str, width: &u32, height: &u32) -> Result<Vec<u8>, Box<dyn Error>> {
-    let img = get_image_sized(url, width, height)?;
+pub fn get_image_pixels(url: Option<String>, width: &u32, height: &u32) -> Result<Vec<u8>, Box<dyn Error>> {
+    let img = match url {
+        Some(url) => get_image_sized(url.as_str(), width, height)?,
+        None => DynamicImage::new_rgb8(*width, *height),
+    };
+
     let pixels = img.to_rgb8().pixels().map(|p| vec![p[0], p[1], p[2]]).flatten().collect();
     Ok(pixels)
 }

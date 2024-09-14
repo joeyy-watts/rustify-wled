@@ -1,4 +1,5 @@
 use rspotify::model::{AudioFeatures, CurrentPlaybackContext, Id, PlayableItem};
+use crate::settings::SETTINGS;
 
 /// State of the current playback, to be tracked
 #[derive(Debug, Clone)]
@@ -46,7 +47,7 @@ impl PlaybackState {
                 is_playing: false,
                 track_name: None,
                 track_id: None,
-                cover_url: Some(String::from("https://play-lh.googleusercontent.com/cShys-AmJ93dB0SV8kE6Fl5eSaf4-qMMZdwEDKI5VEmKAXfzOqbiaeAsqqrEBCTdIEs")),
+                cover_url: SETTINGS.read().unwrap().app.idle_image_url.clone(),
                 features: None,
             }
     }

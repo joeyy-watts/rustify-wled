@@ -44,13 +44,13 @@ pub fn get_client() -> AuthCodeSpotify {
 /// 
 /// returns: Option<Credentials> - the client id and secret in Credentials object
 pub fn id_secret_prompt() -> Option<Credentials> {
-    println!("RSPOTIFY_CLIENT_ID/RSPOTIFY_CLIENT_SECRET not found in environment");
+    println!("RSPOTIFY_CLIENT_ID/RSPOTIFY_CLIENT_SECRET not found in environment, attempting to get from SETTINGS");
 
     // try to get from SETTINGS
-    if SETTINGS.read().unwrap().app.client_id.len() > 0 && SETTINGS.read().unwrap().app.client_secret.len() > 0 {
+    if SETTINGS.read().unwrap().app.client_id.is_some() && SETTINGS.read().unwrap().app.client_secret.is_some() {
         let client_id = SETTINGS.read().unwrap().app.client_id.clone();
         let client_secret = SETTINGS.read().unwrap().app.client_secret.clone();
-        return Some(Credentials::new(client_id.as_str(), client_secret.as_str()));
+        return Some(Credentials::new(client_id.unwrap().as_str(), client_secret.unwrap().as_str()));
     }
 
     println!("Not found in SETTINGS, please enter your Spotify client id and secret");

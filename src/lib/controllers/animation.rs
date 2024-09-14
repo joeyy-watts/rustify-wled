@@ -103,7 +103,7 @@ impl AnimationController {
     /// Plays animation according to the given PlaybackState
     fn play_from_playback(artnet_controller: &ArtNetController2D, playback: PlaybackState) {
         let image_thread = thread::spawn(move || {
-            let image = get_image_pixels(playback.cover_url.unwrap().as_ref(), &32, &32).unwrap();
+            let image = get_image_pixels(playback.cover_url, &32, &32).unwrap();
             image
         });
 

@@ -7,8 +7,9 @@ use serde_derive::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct App {
     pub(crate) callback_url: String,
-    pub(crate) client_id: String,
-    pub(crate) client_secret: String,
+    pub(crate) client_id: Option<String>,
+    pub(crate) client_secret: Option<String>,
+    pub(crate) idle_image_url: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

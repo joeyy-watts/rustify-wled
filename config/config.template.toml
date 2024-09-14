@@ -2,8 +2,9 @@ title = "RustifyWLED Configuration"
 
 [app]
 callback_url = "my-rustify-wled-device.local"
-client_id = ""
-client_secret = ""
+#client_id = ""
+#client_secret = ""
+#idle_image_url = ""
 
 [target]
 host = "my-wled-device.local"
