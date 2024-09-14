@@ -1,3 +1,5 @@
+pub mod settings;
+
 pub mod lib {
         pub mod artnet {
             pub mod anim {

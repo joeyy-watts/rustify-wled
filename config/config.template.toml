@@ -1,6 +1,8 @@
 title = "RustifyWLED Configuration"
 
+[app]
+callback_url = "my-rustify-wled-device.local"
+
 [target]
-host = ""
-size_width = 32
-size_height = 32
+host = "my-wled-device.local"
+size = [32, 32]

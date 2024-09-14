@@ -8,7 +8,7 @@ use std::sync::atomic::Ordering;
 use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use config::Config;
+use crate::settings::Settings;
 use crate::utils::network::resolve_ip;
 
 /////////////////////////////////////////
@@ -41,23 +41,15 @@ pub struct AnimationController {
 
 impl AnimationController {
     pub fn new(rx_app: Receiver<AnimationControllerMessage>) -> Self {
-        let config = Config::builder()
-            .add_source(config::File::with_name("config/config.toml").required(true))
-            .build()
-            .unwrap();
-
-        let size = (
-            config.get::<u8>("target.size_width").unwrap(),
-            config.get::<u8>("target.size_height").unwrap()
-        );
+        let settings = Settings::new().unwrap();
 
         let artnet_controller = ArtNetController2D::new(
-            resolve_ip(config.get::<String>("target.host").unwrap().as_str()).unwrap(),
-            size
+            resolve_ip(settings.target.host.as_str()).unwrap(),
+            settings.target.size
         );
 
         Self { 
-            size: size,
+            size: settings.target.size,
             artnet_controller: Arc::new(artnet_controller),  
             rx_app: Arc::new(Mutex::new(rx_app)) 
         }
