@@ -1,8 +1,8 @@
 ## RustifyWLED
 
-A continuation of my previous project, SpotifyWLED, in Rust.
+_A continuation of my previous project, SpotifyWLED, in Rust._
 
-This web application is intended to be used with a WLED LED matrix device.
+A not-so-simple script to listen to the currently playing track on your Spotify account and forward it to a WLED (https://github.com/Aircoookie/WLED) LED matrix.
 
 ## Features
 
@@ -20,17 +20,21 @@ This web application is intended to be used with a WLED LED matrix device.
 
 ## Usage
 
-*a lot of things are currently hardcoded, I will make proper configs eventually..*
-
 This application requires you to have a Spotify developer account set up, with the client ID and client secret available.
 
-Before starting the application, you are required to set the following environment variables:
-```
-export RSPOTIFY_CLIENT_ID=<your client id>
-export RSPOTIFY_CLIENT_SECRET=<your client secret>
-```
+### Configuration
 
-Then, the application can be started with:
+To setup the configuration, copy `config/config.template.toml` into `config/config.toml` and fill required fields.
+
+#### Spotify Client ID/Secret
+
+This is retrieved in one of three ways:
+- from environment variables: `RSPOTIFY_CLIENT_ID` and `RSPOTIFY_CLIENT_SECRET`
+- from the `config.toml` file
+- from CLI prompt upon running
+
+
+After the configuration is properly setup, the application can be started with:
 ```
 cargo run
 ```
