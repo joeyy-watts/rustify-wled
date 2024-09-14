@@ -7,12 +7,11 @@ use std::io::{self, Write};
 
 use rspotify::{scopes, AuthCodeSpotify, ClientError, Config, Credentials, OAuth, Token};
 use rspotify::clients::{BaseClient, OAuthClient};
-use crate::settings::Settings;
+use crate::settings::SETTINGS;
 
 ///
 /// Creates a new AuthCodeSpotify client with the given credentials and oauth.
 pub fn get_client() -> AuthCodeSpotify {
-    let settings = Settings::new().unwrap();
     let config = Config {
         token_cached: true,
         ..Default::default()
@@ -28,7 +27,7 @@ pub fn get_client() -> AuthCodeSpotify {
     };
 
     let oauth: OAuth = OAuth {
-        redirect_uri: format!("http://{}:8000/callback", settings.app.callback_url).to_string(),
+        redirect_uri: format!("http://{}:8000/callback", SETTINGS.read().unwrap().app.callback_url).to_string(),
         scopes: scopes!(
             "user-read-playback-state",
             "user-read-currently-playing"

@@ -8,7 +8,7 @@ use std::sync::atomic::Ordering;
 use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use crate::settings::Settings;
+use crate::settings::SETTINGS;
 use crate::utils::network::resolve_ip;
 
 /////////////////////////////////////////
@@ -29,10 +29,10 @@ pub enum AnimationControllerMessage {
 
 
 /// Controller for playing animations to target ArtNet devices
-/// 
+///
 /// `artnet_controller` - the controller for the target ArtNet device
 /// `active_animation` - thread of the currently playing animation
-/// 
+///
 pub struct AnimationController {
     pub size: (u8, u8),
     artnet_controller: Arc<ArtNetController2D>,
@@ -41,17 +41,15 @@ pub struct AnimationController {
 
 impl AnimationController {
     pub fn new(rx_app: Receiver<AnimationControllerMessage>) -> Self {
-        let settings = Settings::new().unwrap();
-
         let artnet_controller = ArtNetController2D::new(
-            resolve_ip(settings.target.host.as_str()).unwrap(),
-            settings.target.size
+            resolve_ip(SETTINGS.read().unwrap().target.host.as_str()).unwrap(),
+            SETTINGS.read().unwrap().target.size
         );
 
-        Self { 
-            size: settings.target.size,
-            artnet_controller: Arc::new(artnet_controller),  
-            rx_app: Arc::new(Mutex::new(rx_app)) 
+        Self {
+            size: SETTINGS.read().unwrap().target.size,
+            artnet_controller: Arc::new(artnet_controller),
+            rx_app: Arc::new(Mutex::new(rx_app))
         }
     }
 
@@ -63,7 +61,7 @@ impl AnimationController {
             let mut current_playing: PlaybackState = PlaybackState::none();
             // Mutex guard for receiver's use while inside this thread
             let receiver_guard = local_receiver.lock().unwrap();
-            
+
             loop {
                 match receiver_guard.recv() {
                     Ok(AnimationControllerMessage::Animate(playback)) => {
@@ -93,15 +91,15 @@ impl AnimationController {
     }
 
     /// Plays the given animation to the target device.
-    /// 
+    ///
     /// If an animation is already playing, it set the stop flag, wait for it to complete,
     /// then starts the new animation.
-    /// 
+    ///
     /// `animation` - the animation to be played
-    /// 
+    ///
     /// Returns:
     ///     A Result indicating the success of the operation
-    /// 
+    ///
     /// Plays animation according to the given PlaybackState
     fn play_from_playback(artnet_controller: &ArtNetController2D, playback: PlaybackState) {
         let image_thread = thread::spawn(move || {
@@ -136,6 +134,9 @@ impl AnimationController {
 
         // if some animation is already playing, stop it
         if artnet_controller.is_playing.load(Ordering::Relaxed) {
+            // don't stop animation until next one is rendered
+            while !animation_thread.is_finished() {}
+
             artnet_controller.stop_animation();
 
             // wait for animation to stop before sending new

@@ -1,3 +1,5 @@
+use std::sync::RwLock;
+use once_cell::sync::Lazy;
 use config::{Config, ConfigError, File};
 use serde_derive::Deserialize;
 
@@ -22,7 +24,7 @@ pub struct Settings {
 }
 
 impl Settings {
-    pub fn new() -> Result<Self, ConfigError> {
+    fn new() -> Result<Self, ConfigError> {
 
         let s = Config::builder()
             // Start off by merging in the "default" configuration file
@@ -32,3 +34,8 @@ impl Settings {
         s.try_deserialize()
     }
 }
+
+pub static SETTINGS: Lazy<RwLock<Settings>> = Lazy::new(|| {
+    let settings = Settings::new().expect("Failed to load settings");
+    RwLock::new(settings)
+});
