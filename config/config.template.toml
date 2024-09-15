@@ -12,9 +12,14 @@ polling_seconds = 2
 # Number of albums to precache, if not specified, precaching is disabled
 precache_albums = 2
 
+[target]
+[[target.2d]]
+host = "wled-two-dim.local"
+size = [32, 32]
+
+[[target.1d]]
+host = "wled-one-dim.local"
+size = [20, 0]
+
 [animation]
 target_fps = 30
-
-[target]
-host = "my-wled-device.local"
-size = [32, 32]

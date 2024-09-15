@@ -37,7 +37,7 @@ pub struct Animation {
 #[derive(Debug, Deserialize)]
 #[allow(unused)]
 pub struct Settings {
-    pub(crate) target: Target,
+    pub(crate) targets: Vec<Target>,
     pub(crate) spotify: Spotify,
     pub(crate) app: App,
     pub(crate) animation: Animation,
