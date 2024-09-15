@@ -50,6 +50,8 @@ fn callback(controller: &State<ApplicationController>, code: String) -> StartRes
 
 #[launch]
 fn rocket() -> _ {
+    env_logger::init();
+
     let channels: AppChannels = AppChannels::setup();
 
     let animation_controller: AnimationController = AnimationController::new(channels.anim_msg_rx);

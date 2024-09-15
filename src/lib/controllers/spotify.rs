@@ -3,6 +3,7 @@ use std::sync::Mutex;
 use std::sync::Arc;
 use std::thread::{self};
 use std::time::Duration;
+use log::{debug, info, trace};
 use rspotify::model::{AdditionalType, TrackId};
 use rspotify::{AuthCodeSpotify, ClientError, Token};
 use rspotify::clients::{BaseClient, OAuthClient};
@@ -67,23 +68,23 @@ impl SpotifyController {
         loop {
             match receiver_guard.recv() {
                 Ok(SpotifyControllerMessage::Start) => {
-                    println!("got start message");
+                    info!("Starting Spotify listening loop");
                     loop {
                         match receiver_guard.try_recv() {
                             Ok(SpotifyControllerMessage::Stop) => {
-                                println!("Received STOP command");
+                                info!("Received STOP command");
                                 break;
                             },
                             Ok(SpotifyControllerMessage::Terminate) => {
-                                println!("Received TERMINATE command");
+                                info!("Received TERMINATE command");
                                 break;
                             },
                             Ok(SpotifyControllerMessage::Timeout) => {
                                 if PlaybackState::eq(&current_playing.clone(), &PlaybackState::none()) {
-                                    println!("Idled for too long, TIMEDOUT");
+                                    info!("Idled for too long, timed out");
                                     break;
                                 }
-                                println!("Received TIMEOUT, but ignoring");
+                                info!("Received timeout signal, but ignoring");
                             },
                             // no message, do nothing
                             _ => {},
@@ -92,10 +93,12 @@ impl SpotifyController {
                         // check if track has changed
                         match SpotifyController::track_changed(&client, &current_playing) {
                             (true, new_playback) => {
-                                let local_client = client.clone();
+                                debug!("Track changed to: {:?}", new_playback);
 
+                                let local_client = client.clone();
                                 // precache image
                                 thread::spawn(move || {
+                                    trace!("Starting precache");
                                     SpotifyController::precache_queue(&local_client);
                                 });
 
@@ -114,7 +117,7 @@ impl SpotifyController {
                 },
                 // for handling messages when loop is not running
                 Ok(SpotifyControllerMessage::Stop) => {
-                    println!("Received STOP, but no running polling loop.")
+                    info!("Received STOP, but no running polling loop.")
                 },
                 // terminate the entire controller
                 Ok(SpotifyControllerMessage::Terminate) => {
