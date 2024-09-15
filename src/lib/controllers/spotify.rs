@@ -6,10 +6,11 @@ use std::time::Duration;
 use rspotify::model::{AdditionalType, TrackId};
 use rspotify::{AuthCodeSpotify, ClientError, Token};
 use rspotify::clients::{BaseClient, OAuthClient};
-
+use rspotify::model::PlayableItem::Track;
 use crate::lib::models::app_channels::{self, AppChannels};
 use crate::lib::models::playback_state::PlaybackState;
 use crate::settings::SETTINGS;
+use crate::utils::image::precache_image;
 use crate::utils::spotify::get_client;
 
 #[derive(Clone, Copy)]
@@ -50,68 +51,104 @@ impl SpotifyController {
         let local_receiver = self.sp_msg_rx.clone();
 
         thread::spawn(move || {
-            let mut current_playing: PlaybackState = PlaybackState::none();
             // Mutex guard for receiver's use while inside this thread
             let receiver_guard = local_receiver.lock().unwrap();
-            
-            loop {
-                match receiver_guard.recv() {
-                    Ok(SpotifyControllerMessage::Start) => {
-                        println!("got start message");
-                        loop {
-                            match receiver_guard.try_recv() {
-                                Ok(SpotifyControllerMessage::Stop) => {
-                                    println!("Received STOP command");
-                                    break;
-                                },
-                                Ok(SpotifyControllerMessage::Terminate) => {
-                                    println!("Received TERMINATE command");
-                                    break;
-                                },
-                                Ok(SpotifyControllerMessage::Timeout) => {
-                                    if PlaybackState::eq(&current_playing, &PlaybackState::none()) {
-                                        println!("Idled for too long, TIMEDOUT");
-                                        break;
-                                    }
-                                    println!("Received TIMEOUT, but ignoring");
-                                },
-                                _ => {
-                                    // normal loop, not breaking
-                                },
-                            }
-
-                            let update = SpotifyController::should_update(&local_client, &current_playing);
-                            
-                            match update {
-                                (true, new_playback) => {
-                                    current_playing = new_playback;
-                                    match local_sender.send(current_playing.clone()) {
-                                        Ok(_) => {},
-                                        Err(_) => {},
-                                    }
-                                },
-                                (false, _) => {},
-                            }
-
-                            thread::sleep(Duration::from_secs(SETTINGS.read().unwrap().spotify.polling_seconds));
-                        }
-                    },
-                    // for handling messages when loop is not running
-                    Ok(SpotifyControllerMessage::Stop) => {
-                        println!("Received STOP, but no running polling loop.")
-                    },
-                    // terminate the entire controller
-                    Ok(SpotifyControllerMessage::Terminate) => {
-                        break;
-                    },
-                    Ok(SpotifyControllerMessage::Timeout) => {
-                    },
-                    Err(mpsc::RecvError) => {
-                        // empty, do nothing
-                    },
-                }
-            }
+            SpotifyController::playback_loop(&receiver_guard, &local_client, &local_sender);
         });
+    }
+
+    fn playback_loop(
+        receiver_guard: &Receiver<SpotifyControllerMessage>,
+        client: &AuthCodeSpotify,
+        sender: &Sender<PlaybackState>
+    ) {
+        let mut current_playing: PlaybackState = PlaybackState::none();
+
+        loop {
+            match receiver_guard.recv() {
+                Ok(SpotifyControllerMessage::Start) => {
+                    println!("got start message");
+                    loop {
+                        match receiver_guard.try_recv() {
+                            Ok(SpotifyControllerMessage::Stop) => {
+                                println!("Received STOP command");
+                                break;
+                            },
+                            Ok(SpotifyControllerMessage::Terminate) => {
+                                println!("Received TERMINATE command");
+                                break;
+                            },
+                            Ok(SpotifyControllerMessage::Timeout) => {
+                                if PlaybackState::eq(&current_playing.clone(), &PlaybackState::none()) {
+                                    println!("Idled for too long, TIMEDOUT");
+                                    break;
+                                }
+                                println!("Received TIMEOUT, but ignoring");
+                            },
+                            // no message, do nothing
+                            _ => {},
+                        }
+
+                        // check if track has changed
+                        match SpotifyController::track_changed(&client, &current_playing) {
+                            (true, new_playback) => {
+                                let local_client = client.clone();
+
+                                // precache image
+                                thread::spawn(move || {
+                                    SpotifyController::precache_queue(&local_client);
+                                });
+
+                                // send new playback state
+                                current_playing = new_playback;
+                                match sender.send(current_playing.clone()) {
+                                    Ok(_) => {},
+                                    Err(_) => {},
+                                }
+                            },
+                            (false, _) => {},
+                        }
+
+                        thread::sleep(Duration::from_secs(SETTINGS.read().unwrap().spotify.polling_seconds));
+                    }
+                },
+                // for handling messages when loop is not running
+                Ok(SpotifyControllerMessage::Stop) => {
+                    println!("Received STOP, but no running polling loop.")
+                },
+                // terminate the entire controller
+                Ok(SpotifyControllerMessage::Terminate) => {
+                    break;
+                },
+                Ok(SpotifyControllerMessage::Timeout) => {
+                },
+                // no message, do nothing
+                Err(mpsc::RecvError) => {},
+            }
+        }
+    }
+
+    fn precache_queue(client: &AuthCodeSpotify) {
+        let cache_count = SETTINGS.read().unwrap().spotify.precache_albums;
+
+        match cache_count {
+            Some(count) => {
+                let queue = client.current_user_queue().unwrap();
+
+                // precache only specified number of images
+                for track in queue.queue.iter().take(count as usize) {
+                    match track {
+                        // if Track
+                        Track(track) => {
+                            let _ = precache_image(&track.album.images.first().unwrap().url);
+                        },
+                        // if Episode
+                        _ => {},
+                    }
+                }
+            },
+            None => {}
+        }
     }
 
 
@@ -121,7 +158,7 @@ impl SpotifyController {
     /// Returns:
     ///    - bool: whether the controller should update animation
     ///    - PlaybackState: the current playback state
-    fn should_update(client: &AuthCodeSpotify, current_playing: &PlaybackState) -> (bool, PlaybackState) {
+    fn track_changed(client: &AuthCodeSpotify, current_playing: &PlaybackState) -> (bool, PlaybackState) {
         // current playback context from rspotify client
         let context = client.current_playback(
             None, 

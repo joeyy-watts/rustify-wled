@@ -9,6 +9,9 @@ callback_url = "my-rustify-wled-device.local"
 [spotify]
 polling_seconds = 2
 
+# Number of albums to precache, if not specified, precaching is disabled
+precache_albums = 2
+
 [target]
 host = "my-wled-device.local"
 size = [32, 32]

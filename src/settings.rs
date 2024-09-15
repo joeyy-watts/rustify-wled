@@ -15,6 +15,7 @@ pub struct App {
 #[derive(Debug, Deserialize)]
 pub struct Spotify {
     pub(crate) polling_seconds: u64,
+    pub(crate) precache_albums: Option<u8>,
 }
 
 #[derive(Debug, Deserialize)]
