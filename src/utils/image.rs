@@ -13,13 +13,23 @@ pub fn get_image_pixels(url: Option<String>, width: &u32, height: &u32) -> Resul
     Ok(pixels)
 }
 
-pub fn get_image_sized(url: &str, width: &u32, height: &u32) -> Result<DynamicImage, Box<dyn Error>> {
+pub fn precache_image(url: &str) -> Result<(), Box<dyn Error>> {
+    // check if cache already exists
+    if cache_exists(url) {
+        return Ok(());
+    } else {
+        get_image_raw(url)?;
+        Ok(())
+    }
+}
+
+fn get_image_sized(url: &str, width: &u32, height: &u32) -> Result<DynamicImage, Box<dyn Error>> {
     let img = get_image_raw(url)?;
     let img = img.resize_exact(*height, *width, image::imageops::FilterType::Lanczos3);
     Ok(img)
 }
 
-pub fn get_image_raw(url: &str) -> Result<image::DynamicImage, Box<dyn Error>> {
+fn get_image_raw(url: &str) -> Result<DynamicImage, Box<dyn Error>> {
     let cache_path = get_cache_path(url, true);
 
     if Path::new(&cache_path).exists() {
@@ -40,6 +50,16 @@ pub fn get_image_raw(url: &str) -> Result<image::DynamicImage, Box<dyn Error>> {
 
 
         Ok(img)
+    }
+}
+
+fn cache_exists(url: &str) -> bool {
+    let cache_path = get_cache_path(url, true);
+
+    if Path::new(&cache_path).exists() {
+        true
+    } else {
+        false
     }
 }
 
