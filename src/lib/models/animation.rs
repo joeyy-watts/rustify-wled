@@ -30,6 +30,6 @@ impl Animation {
     ///
     /// Returns the number of pixels in a single frame of the animation
     pub fn get_frame_pixels(&self) -> u16 {
-        (self.frames_loop.get(0).unwrap().data.len() / VALUES_PER_PIXEL) as u16
+        (self.frames_loop.clone().get(0).unwrap().data.len() / VALUES_PER_PIXEL) as u16
     }
 }
