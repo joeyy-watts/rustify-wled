@@ -1,6 +1,8 @@
 use crate::lib::artnet::anim::effects::base::effect::RenderedEffect;
 use super::frame::AnimationFrame;
 
+static VALUES_PER_PIXEL: usize = 3;
+
 #[derive(Clone)]
 pub struct Animation {
     pub frames_loop: Vec<AnimationFrame>,
@@ -23,5 +25,11 @@ impl Animation {
 
     pub fn add_transition_out(&mut self, effect: RenderedEffect) {
         self.frames_out = Some(effect.apply(&self.image));
+    }
+
+    ///
+    /// Returns the number of pixels in a single frame of the animation
+    pub fn get_frame_pixels(&self) -> u16 {
+        (self.frames_loop.get(0).unwrap().data.len() / VALUES_PER_PIXEL) as u16
     }
 }
