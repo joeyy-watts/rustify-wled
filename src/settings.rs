@@ -18,7 +18,7 @@ pub struct Spotify {
     pub(crate) precache_albums: Option<u8>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[allow(unused)]
 pub struct Target {
     pub(crate) host: String,
