@@ -59,10 +59,10 @@ impl Settings {
 
         settings.animation.frame_interval = 1.0 / settings.animation.target_fps as f64;
 
-        Self::verify_settings(settings)
+        Self::validate_settings(settings)
     }
 
-    fn verify_settings(settings: Settings) -> Result<(Settings), ConfigError> {
+    fn validate_settings(settings: Settings) -> Result<(Settings), ConfigError> {
         if settings.spotify.polling_seconds <= 0 {
             return Err(ConfigError::Message("Polling seconds must be greater than 0".to_string()));
         } else if settings.spotify.polling_seconds < SPOTIFY_POLLING_SECONDS_WARNING {
@@ -81,8 +81,8 @@ impl Settings {
 
         for target in settings.targets.iter() {
             if target.size.0 < 1 || target.size.1 < 0 {
-                return Err(ConfigError::Message(("Invalid target size {} for {}", &target.size, &target.host).to_string()));
-            } else if (target.size.0 * target.size.1) as u16 > 1500 as u16 {
+                return Err(ConfigError::Message(format!("Invalid target size {} x {} for {}", &target.size.0, &target.size.1, &target.host).to_string()));
+            } else if (target.size.0 as u16 * target.size.1 as u16) > 1500u16 {
                 warn!("Target size {} x {} for device {} exceeds the maximum number of LEDs WLED can drive: https://kno.wled.ge/interfaces/e1.31-dmx/, normal behavior is NOT GUARANTEED", &target.size.0, &target.size.1, &target.host);
             }
 
