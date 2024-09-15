@@ -17,6 +17,12 @@ impl RenderedEffect {
 
         result
     }
+
+    pub fn clone(&self) -> RenderedEffect {
+        RenderedEffect {
+            multipliers: self.multipliers.to_vec(),
+        }
+    }
 }
 
 pub struct WaveformEffectElement {
