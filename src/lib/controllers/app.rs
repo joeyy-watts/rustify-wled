@@ -6,6 +6,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+use log::warn;
 use rspotify::ClientError;
 
 use crate::lib::models::app_channels::AppChannels;
@@ -130,7 +131,7 @@ impl ApplicationController {
                     }
                     // channel disconnected, stop loop
                     Err(mpsc::TryRecvError::Disconnected) => {
-                        println!("SpotifyController disconnected. Stopping application loop.");
+                        warn!("SpotifyController disconnected. Stopping application loop.");
                         break;
                     }
                 }

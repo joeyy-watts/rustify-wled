@@ -2,6 +2,7 @@ use std::error::Error;
 use std::path::Path;
 use image::{DynamicImage, ImageFormat};
 use std::{fs, thread};
+use log::{debug, log, trace};
 
 pub fn get_image_pixels(url: Option<String>, width: &u32, height: &u32) -> Result<Vec<u8>, Box<dyn Error>> {
     let img = match url {
@@ -16,8 +17,10 @@ pub fn get_image_pixels(url: Option<String>, width: &u32, height: &u32) -> Resul
 pub fn precache_image(url: &str) -> Result<(), Box<dyn Error>> {
     // check if cache already exists
     if cache_exists(url) {
+        debug!("Cache already exists for {}", url);
         return Ok(());
     } else {
+        debug!("Precaching image for {}", url);
         get_image_raw(url)?;
         Ok(())
     }
@@ -33,9 +36,11 @@ fn get_image_raw(url: &str) -> Result<DynamicImage, Box<dyn Error>> {
     let cache_path = get_cache_path(url, true);
 
     if Path::new(&cache_path).exists() {
+        trace!("Cache hit for {}", url);
         let image = image::open(cache_path)?;
         Ok(image)
     } else {
+        trace!("Cache miss for {}, downloading", url);
         let response = reqwest::blocking::get(url)?;
         let content = response.bytes()?;
         let img = image::load_from_memory(&content)?;
@@ -48,7 +53,6 @@ fn get_image_raw(url: &str) -> Result<DynamicImage, Box<dyn Error>> {
             image_for_cache.save_with_format(Path::new(&cache_path), ImageFormat::Png).unwrap();
         });
 
-
         Ok(img)
     }
 }
@@ -57,16 +61,17 @@ fn cache_exists(url: &str) -> bool {
     let cache_path = get_cache_path(url, true);
 
     if Path::new(&cache_path).exists() {
+        trace!("Cache exists for {}", url);
         true
     } else {
+        trace!("Cache does not exist for {}", url);
         false
     }
 }
 
 fn get_cache_path(url: &str, with_file: bool) -> String {
-    let cache_key = md5::compute(url);
-
     if with_file {
+        let cache_key = md5::compute(url);
         format!("/tmp/{}/{:x}.png", env!("CARGO_PKG_NAME"), cache_key)
     } else {
         format!("/tmp/{}", env!("CARGO_PKG_NAME"))
