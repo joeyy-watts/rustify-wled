@@ -7,9 +7,9 @@ use artnet_protocol::*;
 
 use crate::lib::models::animation::Animation;
 use crate::lib::models::frame::AnimationFrame;
+use crate::settings::SETTINGS;
 
-
-/// Controller module for 2D (matrix-based) ArtNet devices
+/// Controller module for ArtNet devices
 /// 
 /// A UDPSocket will be connected throughout the lifecycle of the controller.
 /// Once destroyed, the UDPSocket connection will be terminated.
@@ -17,57 +17,67 @@ use crate::lib::models::frame::AnimationFrame;
 /// `target` - address of the target ArtNet device, without port
 /// `dimensions` - height and weight of the target device
 /// 
-pub struct ArtNetController2D {
-    pub inner: Arc<ArtNetController2DInner>,
+pub struct ArtNetController {
     pub is_playing: Arc<AtomicBool>,
     stop_flag: Arc<AtomicBool>,
-} 
-
-pub struct ArtNetController2DInner {
-    pub target: String,
-    pub size: (u8, u8),
+    size: (u8, u8),
+    target: String,
     socket: UdpSocket,
 }
-
-impl ArtNetController2D {
+impl ArtNetController {
     pub fn new(target: String, size: (u8, u8)) -> Self {
-        let inner: Arc<ArtNetController2DInner> = Arc::new(ArtNetController2DInner::new(target, size));
         let is_playing = Arc::new(AtomicBool::new(false));
         let stop_flag = Arc::new(AtomicBool::new(false));
+        let socket = UdpSocket::bind("0.0.0.0:0").expect("Unable to bind to address!");
 
-        Self { inner, is_playing, stop_flag }
+        Self {
+            is_playing,
+            stop_flag,
+            target,
+            size,
+            socket,
+        }
+
     }
 
-    pub fn send_animation(&self, animation: Animation, frame_interval: f64) {
+    pub fn send_animation(&self, animation: Animation) {
         self.is_playing.store(true, Ordering::Relaxed);
 
-        let local_inner = self.inner.clone();
         let local_stop_flag = self.stop_flag.clone();
         let local_playing_flag = self.is_playing.clone();
+        let local_socket = self.socket.try_clone().expect("Unable to clone socket!");
+        let local_target = self.target.clone();
+        let local_size = self.size.clone();
 
         thread::spawn(move || {
+            // for tracking frame sequence
+            // all shards within the same frame will have the same sequence number
             let mut sequence_counter: u8 = 0;
 
+            // TODO: transitions
             if !animation.frames_in.is_none() {
                 for frame in animation.frames_in.unwrap().clone() {
-                    local_inner.send_frame(frame, sequence_counter, frame_interval);
+                    ArtNetController::send_frame(&local_target, &local_size, frame, sequence_counter, &local_socket);
                 }
             }
 
             while !local_stop_flag.load(Ordering::Relaxed) {
                 for frame in animation.frames_loop.clone() {
-                    local_inner.send_frame(frame, sequence_counter, frame_interval);
+                    ArtNetController::send_frame(&local_target, &local_size, frame, sequence_counter, &local_socket);
                     
                     // to allow for termination mid-animation
                     if local_stop_flag.load(Ordering::Relaxed) {
                         break;
                     }
+
+                    sequence_counter = sequence_counter.wrapping_add(1);
                 }
             }
 
+            // TODO: transitions
             if !animation.frames_out.is_none() {
                 for frame in animation.frames_out.unwrap().clone() {
-                    local_inner.send_frame(frame, sequence_counter, frame_interval);
+                    ArtNetController::send_frame(&local_target, &local_size, frame, sequence_counter, &local_socket);
                 }
             }
 
@@ -81,37 +91,42 @@ impl ArtNetController2D {
             self.stop_flag.store(true, Ordering::Relaxed);
         }
     }
-}
-
-///
-/// Inner struct for ArtNetController2D
-/// to be used inside a thread
-impl ArtNetController2DInner {
-    pub fn new(target: String, size: (u8, u8)) -> Self {
-        let socket = UdpSocket::bind("0.0.0.0:0").expect("Unable to bind to address!");
-
-        Self { target, size, socket }
-    }
 
     /// Sends a single frame (or image) to the target device
-    /// 
+    ///
     /// `frame` - the frame to be sent
-    /// 
-    fn send_frame(&self, frame: AnimationFrame, mut sequence_counter: u8, frame_interval: f64) {
+    ///
+    fn send_frame(
+        target: &String,
+        target_size: &(u8, u8),
+        frame: AnimationFrame,
+        sequence_counter: u8,
+        socket: &UdpSocket,
+    ) {
+        let addr = format!("{}:6454", target).to_socket_addrs().unwrap().next().unwrap();
+        let commands = Self::calculate_sharded_commands(target_size, frame, sequence_counter);
+
+        for command_byte in commands {
+            socket.send_to(&command_byte, &addr).unwrap();
+        }
+
+        thread::sleep(Duration::from_secs_f64(SETTINGS.read().unwrap().animation.frame_interval));
+    }
+
+    fn calculate_sharded_commands(size: &(u8, u8), frame: AnimationFrame, mut sequence_counter: u8) -> Vec<Vec<u8>> {
         // or channels per universe
         static CHANNELS_PER_SHARD: u16 = 510;
         static CHANNELS_PER_PIXEL: u16 = 3;
+
+        let mut commands: Vec<Vec<u8>> = Vec::new();
 
         // calculate number of shards needed
         // total num of channels in frame = (width * height) * (channels per pixel, 3)
         // we can fit only 170 pixels/510 channels in a single universe, even though the max is 512
         // num of shards = ceil(total num of channels / 510)
         let num_shards: u16 = (
-            ((((self.size.0 as u16) * (self.size.1 as u16) * CHANNELS_PER_PIXEL) as u32) / CHANNELS_PER_SHARD as u32) + 1
+            ((((size.0 as u16) * (size.1 as u16) * CHANNELS_PER_PIXEL) as u32) / CHANNELS_PER_SHARD as u32) + 1
         ) as u16;
-
-        let addr = format!("{}:6454", self.target).to_socket_addrs().unwrap().next().unwrap();
-        let mut commands = Vec::new();
 
         for u in 0..num_shards {
             let start: usize = (u * CHANNELS_PER_SHARD) as usize;
@@ -128,12 +143,7 @@ impl ArtNetController2DInner {
 
             commands.push(bytes);
         }
-        
-        for command_byte in commands {
-            self.socket.send_to(&command_byte, &addr).unwrap();
-        }
 
-        sequence_counter = sequence_counter.wrapping_add(1);
-        thread::sleep(Duration::from_secs_f64(frame_interval));
+        commands
     }
 }

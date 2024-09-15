@@ -1,6 +1,6 @@
 use crate::lib::artnet::anim::effects::base::effect::RenderedEffect;
 use crate::lib::artnet::anim::effects::playback::PlaybackEffects;
-use crate::lib::controllers::artnet::ArtNetController2D;
+use crate::lib::controllers::artnet::ArtNetController;
 use crate::lib::models::animation::Animation;
 use crate::lib::models::playback_state::PlaybackState;
 use crate::utils::image::get_image_pixels;
@@ -35,13 +35,13 @@ pub enum AnimationControllerMessage {
 ///
 pub struct AnimationController {
     pub size: (u8, u8),
-    artnet_controller: Arc<ArtNetController2D>,
+    artnet_controller: Arc<ArtNetController>,
     rx_app: Arc<Mutex<Receiver<AnimationControllerMessage>>>,
 }
 
 impl AnimationController {
     pub fn new(rx_app: Receiver<AnimationControllerMessage>) -> Self {
-        let artnet_controller = ArtNetController2D::new(
+        let artnet_controller = ArtNetController::new(
             resolve_ip(SETTINGS.read().unwrap().target.host.as_str()).unwrap(),
             SETTINGS.read().unwrap().target.size
         );
@@ -101,7 +101,7 @@ impl AnimationController {
     ///     A Result indicating the success of the operation
     ///
     /// Plays animation according to the given PlaybackState
-    fn play_from_playback(artnet_controller: &ArtNetController2D, playback: PlaybackState) {
+    fn play_from_playback(artnet_controller: &ArtNetController, playback: PlaybackState) {
         let image_thread = thread::spawn(move || {
             let image = get_image_pixels(playback.cover_url, &32, &32).unwrap();
             image
@@ -110,13 +110,13 @@ impl AnimationController {
         let effect_thread = thread::spawn(move || {
             let effect: RenderedEffect = match (playback.is_playing, playback.features) {
                 (true, Some(features)) => {
-                    PlaybackEffects::play_features(30, features)
+                    PlaybackEffects::play_features(features)
                 },
                 (true, None) => {
-                    PlaybackEffects::play(30)
+                    PlaybackEffects::play()
                 },
                 (false, _) => {
-                    PlaybackEffects::pause(30)
+                    PlaybackEffects::pause()
                 }
             };
             effect
@@ -125,12 +125,9 @@ impl AnimationController {
         let animation_thread = thread::spawn(move || {
             Animation::new(
                 image_thread.join().unwrap(),
-                30,
                 effect_thread.join().unwrap()
             )
         });
-
-        let frame_interval = 1.0 / 30f64;
 
         // if some animation is already playing, stop it
         if artnet_controller.is_playing.load(Ordering::Relaxed) {
@@ -143,7 +140,7 @@ impl AnimationController {
             while artnet_controller.is_playing.load(Ordering::Relaxed) {}
         }
 
-        artnet_controller.send_animation(animation_thread.join().unwrap(), frame_interval);
+        artnet_controller.send_animation(animation_thread.join().unwrap());
     }
 
     pub fn stop_animation(&self) {

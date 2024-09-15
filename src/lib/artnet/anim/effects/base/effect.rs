@@ -1,5 +1,5 @@
 use crate::lib::{artnet::anim::effects::waveforms::waveform::{WaveformEffect, WaveformParameters}, models::frame::AnimationFrame};
-
+use crate::settings::SETTINGS;
 
 /// Brightness varying effect that is ready to be applied to image to generate animation
 pub struct RenderedEffect {
@@ -33,13 +33,12 @@ pub struct WaveformEffectElement {
 /// 
 /// TODO: add docs here
 pub struct EffectBuilder {
-    target_fps: u8,
     elements: Vec<WaveformEffectElement>,
 }
 
 impl EffectBuilder {
-    pub fn new(target_fps: u8) -> Self {
-        Self { target_fps, elements: Vec::new() }
+    pub fn new() -> Self {
+        Self { elements: Vec::new() }
     }
 
     // TODO: currently, this is only for waveform brightness effects
@@ -57,7 +56,7 @@ impl EffectBuilder {
         // calculate the multiplier slices for each effect
         for element in &self.elements {
             // for each render we need the parameters, and the slice factor
-            result.extend(element.effect.render(&self.target_fps, element.slice_factor, element.parameters));
+            result.extend(element.effect.render(element.slice_factor, element.parameters));
         }
 
         RenderedEffect { multipliers: result }

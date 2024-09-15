@@ -3,7 +3,6 @@ use super::frame::AnimationFrame;
 
 #[derive(Clone)]
 pub struct Animation {
-    pub target_fps: u8,
     pub frames_loop: Vec<AnimationFrame>,
     // optional in/out transition frames
     pub frames_in: Option<Vec<AnimationFrame>>,
@@ -12,9 +11,9 @@ pub struct Animation {
 }
 
 impl Animation {
-    pub fn new(image: Vec<u8>, target_fps: u8, effect: RenderedEffect) -> Self {
+    pub fn new(image: Vec<u8>, effect: RenderedEffect) -> Self {
         let frames_loop = effect.apply(&image);
-        Self { target_fps, frames_loop, frames_in: None, frames_out: None, image }
+        Self { frames_loop, frames_in: None, frames_out: None, image }
     }
 
     pub fn add_transition_in(&mut self, effect: RenderedEffect) {

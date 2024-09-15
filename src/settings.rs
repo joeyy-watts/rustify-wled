@@ -27,10 +27,20 @@ pub struct Target {
 
 #[derive(Debug, Deserialize)]
 #[allow(unused)]
+
+pub struct Animation {
+    pub(crate) target_fps: u8,
+    #[serde(skip)]
+    pub(crate) frame_interval: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(unused)]
 pub struct Settings {
     pub(crate) target: Target,
     pub(crate) spotify: Spotify,
     pub(crate) app: App,
+    pub(crate) animation: Animation,
 }
 
 impl Settings {
@@ -41,7 +51,11 @@ impl Settings {
             .add_source(File::with_name("config/config.toml"))
             .build()?;
 
-        s.try_deserialize()
+        let mut settings = s.try_deserialize::<Settings>()?;
+
+        settings.animation.frame_interval = 1.0 / settings.animation.target_fps as f64;
+
+        Ok(settings)
     }
 }
 

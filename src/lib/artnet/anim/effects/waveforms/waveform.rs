@@ -1,6 +1,8 @@
+use crate::settings::SETTINGS;
+
 pub trait WaveformEffect {
-    fn render(&self, target_fps: &u8, slice_factor: f64, waveform_params: WaveformParameters) -> Vec<f64> {
-        let num_factors = (((f64::from(*target_fps) * waveform_params.period).round())) as u16;
+    fn render(&self, slice_factor: f64, waveform_params: WaveformParameters) -> Vec<f64> {
+        let num_factors = (((f64::from(SETTINGS.read().unwrap().animation.target_fps) * waveform_params.period).round())) as u16;
 
         let multipliers = self.calculate_multipliers(num_factors, waveform_params, Some(slice_factor));
         

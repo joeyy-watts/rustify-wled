@@ -10,15 +10,15 @@ use super::{base::effect::{EffectBuilder, RenderedEffect}, waveforms::{waveform:
 pub struct PlaybackEffects;
 
 impl PlaybackEffects {
-    pub fn play(target_fps: u8) -> RenderedEffect {
-        let mut builder = EffectBuilder::new(target_fps);
+    pub fn play() -> RenderedEffect {
+        let mut builder = EffectBuilder::new();
         builder.add_brightness_effect(TruncSinEffect, WaveformParameters { amplitude: 0.5, period: 2.0, v_offset: 0.5, h_offset: 0.0, exponent: 1.0 }, 0.5);
 
         builder.build()
     }
 
-    pub fn pause(target_fps: u8) -> RenderedEffect {
-        let mut builder = EffectBuilder::new(target_fps);
+    pub fn pause() -> RenderedEffect {
+        let mut builder = EffectBuilder::new();
 
         // breathing effect
         builder.add_brightness_effect(
@@ -37,12 +37,12 @@ impl PlaybackEffects {
         builder.build()
     }
 
-    pub fn play_features(target_fps: u8, features: AudioFeatures) -> RenderedEffect {
+    pub fn play_features(features: AudioFeatures) -> RenderedEffect {
         // period is doubled since the sin wave crest needs to correspond to each beat
         let period: f64 = (1.0 / (features.tempo / (60.0 * 2.0))) as f64;
         let exponent: f64 = (features.energy * 10.0).round() as f64;
 
-        let mut builder = EffectBuilder::new(target_fps);
+        let mut builder = EffectBuilder::new();
         builder.add_brightness_effect(
             TruncSinEffect, 
             WaveformParameters { amplitude: -0.3, period, v_offset: 0.6, h_offset: 0.0, exponent },
