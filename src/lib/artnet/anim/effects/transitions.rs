@@ -3,8 +3,8 @@ use super::{base::effect::{EffectBuilder, RenderedEffect}, waveforms::{waveform:
 pub struct TransitionEffects;
 
 impl TransitionEffects {
-    pub fn fade_in(target_fps: u8, fade_time: f64) -> RenderedEffect {
-        let mut builder = EffectBuilder::new(target_fps);
+    pub fn fade_in(fade_time: f64) -> RenderedEffect {
+        let mut builder = EffectBuilder::new();
 
         builder.add_brightness_effect(
             SawtoothEffect,
@@ -15,8 +15,8 @@ impl TransitionEffects {
         builder.build()
     }
 
-    pub fn fade_out(target_fps: u8, fade_time: f64) -> RenderedEffect {
-        let mut builder = EffectBuilder::new(target_fps);
+    pub fn fade_out(fade_time: f64) -> RenderedEffect {
+        let mut builder = EffectBuilder::new();
 
         builder.add_brightness_effect(
             SawtoothEffect,

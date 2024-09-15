@@ -12,6 +12,17 @@ polling_seconds = 2
 # Number of albums to precache, if not specified, precaching is disabled
 precache_albums = 2
 
-[target]
-host = "my-wled-device.local"
+## Example 2-D matrix WLED target
+[[targets]]
+host = "wled-matrix.local"
 size = [32, 32]
+
+## Example 1-D WLED target
+[[targets]]
+host = "wled-strip.local"
+# for 1-D target, specify 0 as the second dimension
+size = [20, 0]
+
+
+[animation]
+target_fps = 30
