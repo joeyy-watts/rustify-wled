@@ -7,13 +7,14 @@ pub struct Animation {
     // optional in/out transition frames
     pub frames_in: Option<Vec<AnimationFrame>>,
     pub frames_out: Option<Vec<AnimationFrame>>,
+    pub target: String,
     image: Vec<u8>,
 }
 
 impl Animation {
-    pub fn new(image: Vec<u8>, effect: RenderedEffect) -> Self {
+    pub fn new(target: String, image: Vec<u8>, effect: RenderedEffect) -> Self {
         let frames_loop = effect.apply(&image);
-        Self { frames_loop, frames_in: None, frames_out: None, image }
+        Self { frames_loop, frames_in: None, frames_out: None, target, image }
     }
 
     pub fn add_transition_in(&mut self, effect: RenderedEffect) {
