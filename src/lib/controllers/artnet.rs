@@ -144,8 +144,8 @@ impl ArtNetController {
 
         for u in 0..num_shards {
             let start: usize = (u * CHANNELS_PER_SHARD) as usize;
-            let end: usize = cmp::min(((u + 1) * CHANNELS_PER_SHARD) - 1, (frame.data.len()) as u16) as usize;
-            let frame_slice = frame.data[start..end].to_vec();
+            let end: usize = cmp::min(((u + 1) * CHANNELS_PER_SHARD) - 1, (frame.data.len() - 1) as u16) as usize;
+            let frame_slice = frame.data[start..=end].to_vec();
             let command: ArtCommand = ArtCommand::Output(Output {
                 data: frame_slice.into(), // The data we're sending to the node
                 sequence: sequence_counter,
